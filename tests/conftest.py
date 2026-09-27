@@ -8,9 +8,22 @@ from stacksmith_composer.settings import Settings
 
 EXAMPLES = Path(__file__).parent.parent / "examples"
 CATALOG = {
-    "network": {"inputs": [{"name": "cidr"}], "outputs": [{"name": "id"}]},
-    "database": {"inputs": [{"name": "name"}], "outputs": [{"name": "endpoint"}]},
-    "service": {"inputs": [{"name": "database_url"}], "outputs": [{"name": "url"}]},
+    "aws_lambda_function": {
+        "inputs": [{"name": "function_name"}, {"name": "role_arn"}],
+        "outputs": [{"name": "arn"}, {"name": "function_name"}],
+    },
+    "aws_iam_role": {
+        "inputs": [{"name": "role_name"}, {"name": "policy_arns"}],
+        "outputs": [{"name": "arn"}, {"name": "name"}],
+    },
+    "aws_iam_policy": {
+        "inputs": [{"name": "name"}, {"name": "policy_statements"}],
+        "outputs": [{"name": "arn"}],
+    },
+    "aws_managed_policy": {
+        "inputs": [{"name": "policy_arn"}],
+        "outputs": [{"name": "arn"}],
+    },
 }
 
 

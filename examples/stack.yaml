@@ -1,18 +1,54 @@
-# This sample is for authoring and inspection. It does not deploy infrastructure.
-name: storefront
-description: A small application with a private database.
-tags: [development]
+name: serverless-reader
+description: Lambda with platform-managed identity and explicit read-only access.
+tags:
+  - aws
+  - serverless
+  - example
 components:
-  network:
-    type: network
+  aws_read_only:
+    type: aws_managed_policy
+    description: Existing AWS-managed read-only policy selected by the developer.
     properties:
-      cidr: "10.42.0.0/16"
-  database:
-    type: database
+      policy_arn: arn:aws:iam::aws:policy/ReadOnlyAccess
+  lambda_logging:
+    type: aws_iam_policy
+    description: Platform baseline permissions for Lambda logging.
+    tags:
+      - lambda_baseline
     properties:
-      name: storefront
-  api:
-    type: service
+      name: serverless-reader-logging
+      description: Allow the example Lambda function to emit CloudWatch logs.
+      policy_statements:
+        - sid: WriteLambdaLogs
+          effect: Allow
+          actions:
+            - logs:CreateLogGroup
+            - logs:CreateLogStream
+            - logs:PutLogEvents
+          resources:
+            - arn:aws:logs:*:*:*
+  execution_role:
+    type: aws_iam_role
+    description: Execution role associated with the Lambda function.
+    tags:
+      - lambda_execution
     properties:
-      name: storefront-api
-      database_url: "{{ components.database.endpoint }}"
+      role_name: serverless-reader-execution
+      trusted_service: lambda.amazonaws.com
+      policy_arns:
+        - '{{ components["aws_read_only"]["arn"] }}'
+  request_reader:
+    type: aws_lambda_function
+    description: Container-based Lambda function using the managed execution role.
+    properties:
+      function_name: serverless-reader
+      image_uri: public.ecr.aws/lambda/python:3.13
+      architecture: arm64
+      memory_size: 512
+      timeout: 15
+      environment_variables:
+        LOG_LEVEL: INFO
+outputs:
+  function_arn:
+    description: ARN of the composed Lambda function.
+    value: '{{ components["request_reader"]["arn"] }}'

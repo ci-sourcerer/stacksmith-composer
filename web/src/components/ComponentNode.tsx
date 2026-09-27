@@ -1,5 +1,5 @@
 import { Handle, Position, type Node, type NodeProps } from "@xyflow/react";
-import { Box, Database, Globe, Network } from "lucide-react";
+import { Box, Database, Globe, Network, ShieldCheck, Zap } from "lucide-react";
 import type { ComponentType } from "../types";
 
 export type ComposerNode = Node<
@@ -8,6 +8,8 @@ export type ComposerNode = Node<
 >;
 
 export function TypeIcon({ type, size = 18 }: { type: string; size?: number }) {
+  if (/lambda/.test(type)) return <Zap size={size} />;
+  if (/iam|policy|role/.test(type)) return <ShieldCheck size={size} />;
   if (/database|postgres|rds/.test(type)) return <Database size={size} />;
   if (/network|vpc/.test(type)) return <Network size={size} />;
   if (/service|app/.test(type)) return <Globe size={size} />;

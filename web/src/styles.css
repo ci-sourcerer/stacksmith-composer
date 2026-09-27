@@ -445,6 +445,10 @@ input[type="checkbox"] {
   background: #e6eedf;
   color: #7d955d;
 }
+.tone-identity {
+  background: #eee7f2;
+  color: #7d668b;
+}
 .palette-footer {
   margin-top: auto;
   padding: 23px 18px;

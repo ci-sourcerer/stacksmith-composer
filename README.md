@@ -44,7 +44,7 @@ Open <http://127.0.0.1:5173>. Vite proxies `/api` to the API on port 8000. Use `
 
 Package versions are derived from Git tags through `uv-dynamic-versioning`. Shared container tasks are also available, including `poe build-image`, `poe run-container`, and `poe container-shell`. The generated API image runs the `stacksmith-composer` console entry point and listens on `0.0.0.0:8000` by default. The React frontend remains a separate build artifact in this first version, and the API image still needs access to a separately installed Stacksmith executable.
 
-The example opens a network, a database, and an application. Dashed lines represent the platform-managed private-network association; the solid line represents an explicit database endpoint reference. Drag another component from the palette or use its add button. Select a node to edit properties through the visual value editor, then review and download the stack. Each catalog input has its own control; lists and objects can be built recursively, connections appear as named links, and uncommon cases still have an advanced JSON fallback. The editor infers value types from authored data until Stacksmith exposes richer type metadata.
+The example composes a container-based AWS Lambda function, its IAM execution role, a customer-managed logging policy, and an AWS-managed read-only policy reference. Dashed lines supply the baseline policy to the role and the role to the function through platform-managed associations. The solid line is an explicit developer-authored attachment from `ReadOnlyAccess` to the role. The local demo only inspects and renders the stack; it does not apply cloud infrastructure. Drag another component from the palette or use its add button. Select a node to edit properties through the visual value editor, then review and download the stack. Each catalog input has its own control; lists and objects can be built recursively, connections appear as named links, and uncommon cases still have an advanced JSON fallback. The editor infers value types from authored data until Stacksmith exposes richer type metadata.
 
 Drafts and diagram positions live in the current tab and are not persisted. Download the reviewed source or create a PR to keep changes. The browser warns before leaving a modified draft.
 
@@ -106,6 +106,12 @@ The real Stacksmith integration test is opt-in and uses only the local example m
 
 ```sh
 STACKSMITH_TEST_COMMAND="$(pwd)/../stacksmith/.venv/bin/stacksmith" uv run poe test
+```
+
+The example managed configuration also includes four variable validations and four plan validations. Run their pass/fail cases with the separate Stacksmith CLI.
+
+```sh
+stacksmith test -c examples/platform.yaml examples/tests.yaml
 ```
 
 The remaining tests use local fixtures and mocked GitHub HTTP responses. They never open actual PRs. GitHub sign-in and a real PR require a configured GitHub App and should be verified against a dedicated test repository before a hosted rollout.

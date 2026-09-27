@@ -26,10 +26,12 @@ def test_sample_and_review_preserve_exact_original(client):
 
 def test_review_returns_authored_diff(client):
     draft = _draft(client)
-    draft["components"]["api"]["properties"]["name"] = "new-service"
+    draft["components"]["request_reader"]["properties"]["function_name"] = (
+        "new-function"
+    )
     response = client.post("/api/review", json=draft)
     assert response.status_code == 200
-    assert "+      name: new-service" in response.json()["diff"]
+    assert "+      function_name: new-function" in response.json()["diff"]
 
 
 def test_snapshot_tampering_is_rejected(client):
@@ -104,7 +106,7 @@ var_validations:
 
 def test_unknown_component_type_blocks_review(client):
     draft = deepcopy(_draft(client))
-    draft["components"]["api"]["type"] = "not-catalogued"
+    draft["components"]["request_reader"]["type"] = "not-catalogued"
     assert client.post("/api/review", json=draft).status_code == 422
 
 

@@ -37,9 +37,12 @@ def test_real_cli_resolves_edges_and_opt_out_without_changing_authored_source(tm
             "reference"
         ) == 1
         assert reviewed.json()["diff"] == ""
-        draft["disabled_associations"] = ["private-network"]
+        draft["disabled_associations"] = [
+            "lambda-execution-role",
+            "role-baseline-policies",
+        ]
         opted_out = client.post("/api/review", json=draft)
         assert opted_out.status_code == 200, opted_out.text
         assert len(opted_out.json()["edges"]) == 1
         assert "disabled_associations" in opted_out.json()["diff"]
-        assert "network_id" not in opted_out.json()["source"]
+        assert "role_arn" not in opted_out.json()["source"]
