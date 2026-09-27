@@ -26,7 +26,7 @@ npm --prefix web ci
 cp .env.example .env
 ```
 
-The example assumes a sibling `../stacksmith/.venv/bin/stacksmith` executable. Set `COMPOSER_STACKSMITH_COMMAND` in `.env` if yours is elsewhere. Composer does not install, import, or modify the sibling project.
+The example assumes a sibling `../stacksmith/.venv/bin/stacksmith` executable. Set `COMPOSER_STACKSMITH_COMMAND` in `.env` if yours is elsewhere. Composer does not install, import, or modify the sibling project. Set `COMPOSER_MODULE_SOURCE_PREFIX` to a trusted filesystem prefix that should be removed from local module paths displayed in the catalog. Module sources outside that prefix remain unchanged.
 
 Run the API from the project root.
 

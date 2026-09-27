@@ -16,8 +16,6 @@ import {
   Plus,
   Search,
   Settings2,
-  Redo2,
-  Undo2,
   X,
 } from "lucide-react";
 import type { Connection } from "@xyflow/react";
@@ -557,26 +555,6 @@ export default function App() {
                 </div>
               </div>
               <div className="toolbar-actions">
-                <div className="history-actions" aria-label="Draft history">
-                  <button
-                    className="icon-button"
-                    aria-label="Undo"
-                    title="Undo (⌘Z / Ctrl+Z)"
-                    disabled={!draftHistory.past.length}
-                    onClick={() => dispatchDraft({ type: "undo" })}
-                  >
-                    <Undo2 size={16} />
-                  </button>
-                  <button
-                    className="icon-button"
-                    aria-label="Redo"
-                    title="Redo (⌘⇧Z / Ctrl+Y)"
-                    disabled={!draftHistory.future.length}
-                    onClick={() => dispatchDraft({ type: "redo" })}
-                  >
-                    <Redo2 size={16} />
-                  </button>
-                </div>
                 {view === "review" ? (
                   <button className="button" onClick={() => setView("compose")}>
                     <ArrowLeft size={15} />
@@ -713,6 +691,10 @@ export default function App() {
                       onConnect={connect}
                       onAdd={addComponent}
                       inspecting={inspecting}
+                      canUndo={Boolean(draftHistory.past.length)}
+                      canRedo={Boolean(draftHistory.future.length)}
+                      onUndo={() => dispatchDraft({ type: "undo" })}
+                      onRedo={() => dispatchDraft({ type: "redo" })}
                     />
                     <div
                       className={`validation-bar ${validationError ? "has-error" : ""}`}
@@ -814,10 +796,15 @@ export default function App() {
                       ))}
                     </div>
                     <div className="catalog-source">
-                      <span>Module · {definition.module_version}</span>
-                      <code title={definition.module_source}>
-                        {definition.module_source}
-                      </code>
+                      <span>
+                        Module ·{" "}
+                        {definition.module_path ?? definition.module_version}
+                      </span>
+                      {!definition.module_path && (
+                        <code title={definition.module_source}>
+                          {definition.module_source}
+                        </code>
+                      )}
                     </div>
                     <button
                       className="button"

@@ -93,7 +93,10 @@ class StacksmithAdapter:
         Raises:
             ComposerError: If the CLI cannot inspect the trusted configuration.
         """
-        return self._json(["info", "modules-and-policies"])
+        return _relative_module_sources(
+            self._json(["info", "modules-and-policies"]),
+            self.settings.module_source_prefix,
+        )
 
     def associations(self, source: str) -> dict[str, Any]:
         """Resolve managed associations for an authored stack in a temporary workspace.
@@ -108,3 +111,27 @@ class StacksmithAdapter:
             ComposerError: If the stack cannot be resolved.
         """
         return self._json(["info", "associations"], source)
+
+
+def _relative_module_sources(
+    catalog: dict[str, Any], prefix: Path | None
+) -> dict[str, Any]:
+    if prefix is None:
+        return catalog
+    result: dict[str, Any] = {}
+    for name, value in catalog.items():
+        if not isinstance(value, dict) or not isinstance(
+            value.get("module_source"), str
+        ):
+            result[name] = value
+            continue
+        definition = {**value}
+        try:
+            definition["module_path"] = (
+                Path(value["module_source"]).resolve().relative_to(prefix).as_posix()
+            )
+            definition["module_source"] = definition["module_path"]
+        except ValueError:
+            pass
+        result[name] = definition
+    return result

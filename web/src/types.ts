@@ -13,6 +13,7 @@ export interface Port {
 export interface ComponentType {
   display_name: string;
   module_source: string;
+  module_path?: string;
   module_version: string;
   tags?: string[];
   inputs: Port[];

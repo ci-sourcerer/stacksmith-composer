@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     stacksmith_command: str = "stacksmith"
     config: Path = Path("examples/platform.yaml")
     sample: Path = Path("examples/stack.yaml")
+    module_source_prefix: Path | None = None
     public_url: str = "http://127.0.0.1:5173"
     database: Path = Path(".data/composer.sqlite3")
     secret_key: str = Field(default_factory=lambda: token_urlsafe(48))
@@ -36,5 +37,7 @@ class Settings(BaseSettings):
             )
         self.config = self.config.resolve()
         self.sample = self.sample.resolve()
+        if self.module_source_prefix is not None:
+            self.module_source_prefix = self.module_source_prefix.resolve()
         self.public_url = self.public_url.rstrip("/")
         return self

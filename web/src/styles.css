@@ -627,12 +627,15 @@ input[type="checkbox"] {
   padding-left: 8px;
   border-left: 1px solid #d8dfd2;
 }
-.history-actions {
+.canvas-history {
   display: flex;
   align-items: center;
   gap: 3px;
-  padding-right: 8px;
-  border-right: 1px solid var(--line);
+  padding: 5px;
+  border: 1px solid #dfe5d7;
+  border-radius: 6px;
+  background: #fafbf6ee;
+  box-shadow: 0 3px 10px #53644d0f;
 }
 .validation-bar {
   min-height: 38px;

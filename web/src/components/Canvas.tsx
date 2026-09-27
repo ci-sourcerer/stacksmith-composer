@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { Redo2, Undo2 } from "lucide-react";
 import {
   Background,
   BackgroundVariant,
@@ -36,6 +37,10 @@ interface Props {
   onConnect: (connection: Connection) => void;
   onAdd: (type: string) => string;
   inspecting: boolean;
+  canUndo: boolean;
+  canRedo: boolean;
+  onUndo: () => void;
+  onRedo: () => void;
 }
 
 function Diagram(props: Props) {
@@ -177,6 +182,28 @@ function Diagram(props: Props) {
             />
             {props.inspecting ? "Inspecting draft…" : "Component diagram"}
             <span>{nodes.length} components</span>
+          </div>
+        </Panel>
+        <Panel position="top-right">
+          <div className="canvas-history" aria-label="Draft history">
+            <button
+              className="icon-button"
+              aria-label="Undo"
+              title="Undo (⌘Z / Ctrl+Z)"
+              disabled={!props.canUndo}
+              onClick={props.onUndo}
+            >
+              <Undo2 size={16} />
+            </button>
+            <button
+              className="icon-button"
+              aria-label="Redo"
+              title="Redo (⌘⇧Z / Ctrl+Y)"
+              disabled={!props.canRedo}
+              onClick={props.onRedo}
+            >
+              <Redo2 size={16} />
+            </button>
           </div>
         </Panel>
         <Panel position="bottom-center">

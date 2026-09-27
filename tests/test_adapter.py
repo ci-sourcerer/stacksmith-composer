@@ -62,3 +62,35 @@ def test_cli_stderr_is_not_exposed(tmp_path):
     ):
         adapter.catalog()
     assert "secret-value" not in str(error.value)
+
+
+def test_catalog_removes_configured_module_source_prefix(tmp_path, monkeypatch):
+    monkeypatch.setenv("COMPOSER_MODULE_SOURCE_PREFIX", str(tmp_path))
+    adapter = StacksmithAdapter(
+        Settings(_env_file=None, config=tmp_path / "trusted.yaml")
+    )
+    with patch.object(
+        adapter,
+        "_json",
+        return_value={
+            "service": {
+                "module_source": str(tmp_path / "modules" / "service"),
+                "module_version": "local",
+            },
+            "remote": {
+                "module_source": "/another/root/module",
+                "module_version": "1.2.3",
+            },
+        },
+    ):
+        assert adapter.catalog() == {
+            "service": {
+                "module_path": "modules/service",
+                "module_source": "modules/service",
+                "module_version": "local",
+            },
+            "remote": {
+                "module_source": "/another/root/module",
+                "module_version": "1.2.3",
+            },
+        }
