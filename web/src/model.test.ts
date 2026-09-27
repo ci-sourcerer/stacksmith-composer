@@ -6,6 +6,8 @@ import {
   isJsonValue,
   jsonValueType,
   nextComponentName,
+  relationshipKey,
+  removeReference,
 } from "./model";
 
 describe("authored graph changes", () => {
@@ -78,6 +80,38 @@ describe("authored graph changes", () => {
         "network",
       ),
     ).toBe(true);
+  });
+
+  it("removes a nested output reference without dropping sibling values", () => {
+    const relationship = {
+      source: "database",
+      target: "api",
+      output: "endpoint",
+      property: "settings",
+      path: ["settings", "database", "url"],
+      kind: "reference" as const,
+      rule: null,
+    };
+    expect(
+      removeReference(
+        {
+          database: { type: "database" },
+          api: {
+            type: "service",
+            properties: {
+              settings: {
+                database: { url: "reference", pool_size: 4 },
+                replicas: 2,
+              },
+            },
+          },
+        },
+        relationship,
+      ).api.properties,
+    ).toEqual({
+      settings: { database: { pool_size: 4 }, replicas: 2 },
+    });
+    expect(relationshipKey(relationship)).toContain("database");
   });
 });
 

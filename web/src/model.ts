@@ -82,3 +82,71 @@ export function canRemove(
     (edge) => edge.source === name && edge.kind === "reference",
   );
 }
+
+export function relationshipKey(relationship: Relationship): string {
+  return JSON.stringify([
+    relationship.kind,
+    relationship.source,
+    relationship.output,
+    relationship.target,
+    relationship.property,
+    relationship.path,
+    relationship.rule,
+  ]);
+}
+
+export function removeReference(
+  components: Components,
+  relationship: Relationship,
+): Components {
+  if (relationship.kind !== "reference") return components;
+  const target = components[relationship.target];
+  if (!target?.properties) return components;
+  return {
+    ...components,
+    [relationship.target]: {
+      ...target,
+      properties: removeValueAtPath(target.properties, relationship.path),
+    },
+  };
+}
+
+function removeValueAtPath(
+  value: Record<string, unknown>,
+  path: (string | number)[],
+): Record<string, unknown> {
+  const [head, ...tail] = path;
+  if (typeof head !== "string" || !Object.hasOwn(value, head)) return value;
+  if (!tail.length)
+    return Object.fromEntries(
+      Object.entries(value).filter(([name]) => name !== head),
+    );
+  const child = removeNestedValue(value[head], tail);
+  return child === value[head] ? value : { ...value, [head]: child };
+}
+
+function removeNestedValue(value: unknown, path: (string | number)[]): unknown {
+  const [head, ...tail] = path;
+  if (Array.isArray(value) && typeof head === "number" && head in value) {
+    if (!tail.length) return value.filter((_, index) => index !== head);
+    const child = removeNestedValue(value[head], tail);
+    return child === value[head]
+      ? value
+      : value.map((item, index) => (index === head ? child : item));
+  }
+  if (
+    value !== null &&
+    typeof value === "object" &&
+    typeof head === "string" &&
+    Object.hasOwn(value, head)
+  ) {
+    const object = value as Record<string, unknown>;
+    if (!tail.length)
+      return Object.fromEntries(
+        Object.entries(object).filter(([name]) => name !== head),
+      );
+    const child = removeNestedValue(object[head], tail);
+    return child === object[head] ? value : { ...object, [head]: child };
+  }
+  return value;
+}

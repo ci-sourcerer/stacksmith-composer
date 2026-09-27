@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useReducer, useState } from "react";
 import {
   ArrowDownToLine,
   ArrowLeft,
@@ -16,18 +16,31 @@ import {
   Plus,
   Search,
   Settings2,
+  Redo2,
+  Undo2,
   X,
 } from "lucide-react";
 import type { Connection } from "@xyflow/react";
 import { api } from "./api";
-import { canRemove, connectComponents, nextComponentName } from "./model";
+import {
+  canRemove,
+  connectComponents,
+  nextComponentName,
+  relationshipKey,
+  removeReference,
+} from "./model";
+import {
+  createDraftHistory,
+  draftHistoryReducer,
+  isTextEditingTarget,
+  keyboardCommand,
+} from "./history";
 import { Canvas } from "./components/Canvas";
 import { Inspector } from "./components/Inspector";
 import { PlatformView } from "./components/PlatformView";
 import { TypeIcon } from "./components/ComponentNode";
 import type {
   Catalog,
-  Components,
   Platform,
   Repository,
   Review,
@@ -57,12 +70,16 @@ export default function App() {
   const [catalog, setCatalog] = useState<Catalog>({});
   const [platform, setPlatform] = useState<Platform>();
   const [snapshot, setSnapshot] = useState<Snapshot>();
-  const [components, setComponents] = useState<Components>({});
-  const [positions, setPositions] = useState<
-    Record<string, { x: number; y: number }>
-  >({});
-  const [disabled, setDisabled] = useState<string[]>([]);
+  const [draftHistory, dispatchDraft] = useReducer(
+    draftHistoryReducer,
+    undefined,
+    () => createDraftHistory(),
+  );
+  const { components, positions, disabled } = draftHistory.present;
   const [selected, setSelected] = useState<string | null>(null);
+  const [selectedRelationship, setSelectedRelationship] = useState<
+    string | null
+  >(null);
   const [view, setView] = useState<View>("compose");
   const [search, setSearch] = useState("");
   const [review, setReview] = useState<Review>();
@@ -79,16 +96,24 @@ export default function App() {
   const [pr, setPr] = useState<{ url: string; number: number }>();
 
   function loadSnapshot(opened: Snapshot) {
-    setPositions({});
+    dispatchDraft({
+      type: "reset",
+      draft: {
+        positions: {},
+        components: opened.document?.components ?? {},
+        disabled: opened.document?.disabled_associations ?? [],
+      },
+    });
     setSnapshot(opened);
-    setComponents(opened.document?.components ?? {});
-    setDisabled(opened.document?.disabled_associations ?? []);
     setSelected(null);
+    setSelectedRelationship(null);
     setPr(undefined);
     setReview(undefined);
     setValidationError("");
     setView("compose");
   }
+
+  const editable = snapshot?.editable ?? false;
 
   useEffect(() => {
     let active = true;
@@ -202,11 +227,18 @@ export default function App() {
 
   function addComponent(type: string): string {
     const name = nextComponentName(type, components);
-    setComponents((current) => ({
-      ...current,
-      [name]: { type, properties: {} },
-    }));
+    dispatchDraft({
+      type: "change",
+      update: (draft) => ({
+        ...draft,
+        components: {
+          ...draft.components,
+          [name]: { type, properties: {} },
+        },
+      }),
+    });
     setSelected(name);
+    setSelectedRelationship(null);
     setView("compose");
     return name;
   }
@@ -227,19 +259,30 @@ export default function App() {
       )
     )
       return;
-    try {
-      setComponents(
-        connectComponents(
-          components,
-          connection.source,
-          connection.sourceHandle.slice(4),
-          connection.target,
-          connection.targetHandle.slice(3),
-        ),
-      );
-    } catch (error) {
-      setError(errorMessage(error));
+    if (connection.source === connection.target) {
+      setError("A component cannot consume its own output.");
+      return;
     }
+    if (
+      !Object.hasOwn(components, connection.source) ||
+      !Object.hasOwn(components, connection.target)
+    ) {
+      setError("Both components must exist.");
+      return;
+    }
+    dispatchDraft({
+      type: "change",
+      update: (draft) => ({
+        ...draft,
+        components: connectComponents(
+          draft.components,
+          connection.source,
+          connection.sourceHandle!.slice(4),
+          connection.target,
+          connection.targetHandle!.slice(3),
+        ),
+      }),
+    });
   }
 
   function removeComponent(name: string) {
@@ -249,12 +292,57 @@ export default function App() {
       );
       return;
     }
-    setComponents((current) =>
-      Object.fromEntries(
-        Object.entries(current).filter(([key]) => key !== name),
-      ),
-    );
+    dispatchDraft({
+      type: "change",
+      update: (draft) => ({
+        ...draft,
+        components: Object.fromEntries(
+          Object.entries(draft.components).filter(([key]) => key !== name),
+        ),
+        positions: Object.fromEntries(
+          Object.entries(draft.positions).filter(([key]) => key !== name),
+        ),
+      }),
+    });
     setSelected(null);
+  }
+
+  function removeRelationship(key: string) {
+    const relationship = review?.edges.find(
+      (edge) => relationshipKey(edge) === key,
+    );
+    if (!relationship) return;
+    dispatchDraft({
+      type: "change",
+      update: (draft) =>
+        relationship.kind === "association" && relationship.rule
+          ? {
+              ...draft,
+              disabled: draft.disabled.includes(relationship.rule)
+                ? draft.disabled
+                : [...draft.disabled, relationship.rule],
+            }
+          : {
+              ...draft,
+              components: removeReference(draft.components, relationship),
+            },
+    });
+    setSelectedRelationship(null);
+  }
+
+  function changePosition(
+    name: string,
+    position: { x: number; y: number },
+    record: boolean,
+  ) {
+    dispatchDraft({
+      type: "change",
+      record,
+      update: (draft) => ({
+        ...draft,
+        positions: { ...draft.positions, [name]: position },
+      }),
+    });
   }
 
   async function openStack(path: string) {
@@ -298,13 +386,39 @@ export default function App() {
     }
   }
 
+  useEffect(() => {
+    if (selected && !Object.hasOwn(components, selected)) setSelected(null);
+  }, [components, selected]);
+
+  useEffect(() => {
+    function handleKeyboard(event: KeyboardEvent) {
+      if (isTextEditingTarget(event.target)) return;
+      const command = keyboardCommand(event);
+      if (command === "undo" && draftHistory.past.length) {
+        event.preventDefault();
+        dispatchDraft({ type: "undo" });
+      } else if (command === "redo" && draftHistory.future.length) {
+        event.preventDefault();
+        dispatchDraft({ type: "redo" });
+      } else if (command === "delete" && editable && view === "compose") {
+        if (selected) {
+          event.preventDefault();
+          removeComponent(selected);
+        } else if (selectedRelationship) {
+          event.preventDefault();
+          removeRelationship(selectedRelationship);
+        }
+      }
+    }
+    window.addEventListener("keydown", handleKeyboard);
+    return () => window.removeEventListener("keydown", handleKeyboard);
+  });
+
   const filteredCatalog = Object.entries(catalog).filter(([type, definition]) =>
     `${type} ${definition.display_name} ${definition.tags?.join(" ")}`
       .toLowerCase()
       .includes(search.toLowerCase()),
   );
-  const editable = snapshot?.editable ?? false;
-
   return (
     <div className="application">
       <header className="topbar">
@@ -443,6 +557,26 @@ export default function App() {
                 </div>
               </div>
               <div className="toolbar-actions">
+                <div className="history-actions" aria-label="Draft history">
+                  <button
+                    className="icon-button"
+                    aria-label="Undo"
+                    title="Undo (⌘Z / Ctrl+Z)"
+                    disabled={!draftHistory.past.length}
+                    onClick={() => dispatchDraft({ type: "undo" })}
+                  >
+                    <Undo2 size={16} />
+                  </button>
+                  <button
+                    className="icon-button"
+                    aria-label="Redo"
+                    title="Redo (⌘⇧Z / Ctrl+Y)"
+                    disabled={!draftHistory.future.length}
+                    onClick={() => dispatchDraft({ type: "redo" })}
+                  >
+                    <Redo2 size={16} />
+                  </button>
+                </div>
                 {view === "review" ? (
                   <button className="button" onClick={() => setView("compose")}>
                     <ArrowLeft size={15} />
@@ -567,13 +701,15 @@ export default function App() {
                   <div className="diagram-column">
                     <Canvas
                       positions={positions}
-                      onPositionsChange={setPositions}
+                      onPositionChange={changePosition}
                       key={snapshot.snapshot}
                       components={components}
                       catalog={catalog}
                       relationships={review?.edges ?? []}
                       selected={selected}
+                      selectedRelationship={selectedRelationship}
                       onSelect={setSelected}
+                      onSelectRelationship={setSelectedRelationship}
                       onConnect={connect}
                       onAdd={addComponent}
                       inspecting={inspecting}
@@ -606,10 +742,16 @@ export default function App() {
                       definition={catalog[components[selected].type]}
                       relationships={review?.edges ?? []}
                       onChange={(component) =>
-                        setComponents((current) => ({
-                          ...current,
-                          [selected]: component,
-                        }))
+                        dispatchDraft({
+                          type: "change",
+                          update: (draft) => ({
+                            ...draft,
+                            components: {
+                              ...draft.components,
+                              [selected]: component,
+                            },
+                          }),
+                        })
                       }
                       onRemove={() => removeComponent(selected)}
                       onClose={() => setSelected(null)}
@@ -750,13 +892,20 @@ export default function App() {
                     <input
                       type="checkbox"
                       checked={!disabled.includes(rule.name)}
-                      onChange={(event) =>
-                        setDisabled((current) =>
-                          event.target.checked
-                            ? current.filter((name) => name !== rule.name)
-                            : [...current, rule.name],
-                        )
-                      }
+                      onChange={(event) => {
+                        const enabled = event.target.checked;
+                        dispatchDraft({
+                          type: "change",
+                          update: (draft) => ({
+                            ...draft,
+                            disabled: enabled
+                              ? draft.disabled.filter(
+                                  (name) => name !== rule.name,
+                                )
+                              : [...draft.disabled, rule.name],
+                          }),
+                        });
+                      }}
                     />
                     <span>
                       <strong>{rule.name}</strong>

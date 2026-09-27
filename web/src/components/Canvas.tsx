@@ -1,10 +1,4 @@
-import {
-  useEffect,
-  useMemo,
-  useState,
-  type Dispatch,
-  type SetStateAction,
-} from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Background,
   BackgroundVariant,
@@ -20,28 +14,34 @@ import {
   type NodeChange,
 } from "@xyflow/react";
 import { ComponentNode, type ComposerNode } from "./ComponentNode";
+import { relationshipKey } from "../model";
 import type { Catalog, Components, Relationship } from "../types";
 import "@xyflow/react/dist/style.css";
 
 const nodeTypes = { component: ComponentNode };
 interface Props {
   positions: Record<string, { x: number; y: number }>;
-  onPositionsChange: Dispatch<
-    SetStateAction<Record<string, { x: number; y: number }>>
-  >;
+  onPositionChange: (
+    name: string,
+    position: { x: number; y: number },
+    record: boolean,
+  ) => void;
   components: Components;
   catalog: Catalog;
   relationships: Relationship[];
   selected: string | null;
+  selectedRelationship: string | null;
   onSelect: (name: string | null) => void;
+  onSelectRelationship: (relationship: string | null) => void;
   onConnect: (connection: Connection) => void;
   onAdd: (type: string) => string;
   inspecting: boolean;
 }
 
 function Diagram(props: Props) {
-  const { positions, onPositionsChange: setPositions } = props;
+  const { positions } = props;
   const [nodes, setNodes] = useState<ComposerNode[]>([]);
+  const dragging = useRef(new Set<string>());
   const { screenToFlowPosition } = useReactFlow();
   useEffect(() => {
     setNodes(
@@ -70,8 +70,8 @@ function Diagram(props: Props) {
 
   const edges = useMemo<Edge[]>(
     () =>
-      props.relationships.map((edge, index) => ({
-        id: `${edge.kind}:${index}:${edge.source}:${edge.target}`,
+      props.relationships.map((edge) => ({
+        id: relationshipKey(edge),
         source: edge.source,
         target: edge.target,
         sourceHandle: `out:${edge.output}`,
@@ -83,7 +83,8 @@ function Diagram(props: Props) {
             : `${edge.output} → ${edge.path.join(".")}`,
         style: {
           stroke: edge.kind === "association" ? "#9d7d46" : "#3d8076",
-          strokeWidth: 1.8,
+          strokeWidth:
+            props.selectedRelationship === relationshipKey(edge) ? 3.4 : 1.8,
           strokeDasharray: edge.kind === "association" ? "5 5" : undefined,
         },
         labelStyle: {
@@ -94,18 +95,19 @@ function Diagram(props: Props) {
         labelBgStyle: { fill: "#fafaf6", fillOpacity: 0.95 },
         labelBgPadding: [7, 4],
         deletable: false,
+        selected: props.selectedRelationship === relationshipKey(edge),
       })),
-    [props.relationships],
+    [props.relationships, props.selectedRelationship],
   );
 
   function onNodesChange(changes: NodeChange<ComposerNode>[]) {
     setNodes((current) => applyNodeChanges(changes, current));
     for (const change of changes) {
-      if (change.type === "position" && change.position)
-        setPositions((current) => ({
-          ...current,
-          [change.id]: change.position!,
-        }));
+      if (change.type !== "position" || !change.position) continue;
+      const alreadyDragging = dragging.current.has(change.id);
+      props.onPositionChange(change.id, change.position, !alreadyDragging);
+      if (change.dragging) dragging.current.add(change.id);
+      else dragging.current.delete(change.id);
     }
   }
 
@@ -123,10 +125,11 @@ function Diagram(props: Props) {
         );
         if (!Object.hasOwn(props.catalog, type)) return;
         const name = props.onAdd(type);
-        setPositions((current) => ({
-          ...current,
-          [name]: screenToFlowPosition({ x: event.clientX, y: event.clientY }),
-        }));
+        props.onPositionChange(
+          name,
+          screenToFlowPosition({ x: event.clientX, y: event.clientY }),
+          false,
+        );
       }}
     >
       <ReactFlow<ComposerNode>
@@ -134,8 +137,18 @@ function Diagram(props: Props) {
         edges={edges}
         nodeTypes={nodeTypes}
         onNodesChange={onNodesChange}
-        onNodeClick={(_, node) => props.onSelect(node.id)}
-        onPaneClick={() => props.onSelect(null)}
+        onNodeClick={(_, node) => {
+          props.onSelectRelationship(null);
+          props.onSelect(node.id);
+        }}
+        onEdgeClick={(_, edge) => {
+          props.onSelect(null);
+          props.onSelectRelationship(edge.id);
+        }}
+        onPaneClick={() => {
+          props.onSelect(null);
+          props.onSelectRelationship(null);
+        }}
         onConnect={props.onConnect}
         edgesReconnectable={false}
         deleteKeyCode={null}
@@ -167,7 +180,9 @@ function Diagram(props: Props) {
           </div>
         </Panel>
         <Panel position="bottom-center">
-          <div className="legend">
+          <div
+            className={`legend ${props.selectedRelationship ? "has-selection" : ""}`}
+          >
             <span>
               <i className="reference-line" />
               Output reference
@@ -176,6 +191,9 @@ function Diagram(props: Props) {
               <i className="association-line" />
               Managed association
             </span>
+            {props.selectedRelationship && (
+              <strong>Selected · Delete to remove</strong>
+            )}
           </div>
         </Panel>
       </ReactFlow>

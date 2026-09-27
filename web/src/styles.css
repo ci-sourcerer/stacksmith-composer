@@ -620,6 +620,20 @@ input[type="checkbox"] {
 .legend .association-line {
   border-top: 2px dashed #ac8f5b;
 }
+.legend strong {
+  color: #365f57;
+  font-size: 9px;
+  font-weight: 650;
+  padding-left: 8px;
+  border-left: 1px solid #d8dfd2;
+}
+.history-actions {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  padding-right: 8px;
+  border-right: 1px solid var(--line);
+}
 .validation-bar {
   min-height: 38px;
   display: flex;
