@@ -1,0 +1,63 @@
+description: Example platform contract. These local modules demonstrate composition only.
+backend:
+  data:
+    type: local
+    path: .stacksmith/terraform.tfstate
+module_mappings:
+  network:
+    description: Private network
+    tags: [networking]
+    source:
+      source: local
+      data:
+        path: modules/network
+    properties:
+      cidr:
+        description: Address range for this private network, for example 10.42.0.0/16.
+    outputs:
+      id:
+        description: The private network identifier.
+  database:
+    description: PostgreSQL database
+    tags: [data]
+    source:
+      source: local
+      data:
+        path: modules/database
+    properties:
+      name:
+        description: Database name used by the application.
+      network_id:
+        description: Supplied automatically by the private-network association.
+    outputs:
+      endpoint:
+        description: Connection endpoint consumed by an application.
+  service:
+    description: Application service
+    tags: [compute]
+    source:
+      source: local
+      data:
+        path: modules/service
+    properties:
+      name:
+        description: Name of the application service.
+      database_url:
+        description: Connect a database endpoint or enter a connection reference.
+      network_id:
+        description: Supplied automatically by the private-network association.
+    outputs:
+      url:
+        description: Public service URL.
+associations:
+  private-network:
+    description: Place databases and services in the stack's private network.
+    producers:
+      select: component_type == 'network'
+      cardinality: zero_or_one
+    consumers:
+      select: component_type == 'database' || component_type == 'service'
+    bindings:
+      - output: id
+        property: network_id
+        merge: set_if_absent

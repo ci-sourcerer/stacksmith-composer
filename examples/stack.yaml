@@ -1,0 +1,18 @@
+# This sample is for authoring and inspection. It does not deploy infrastructure.
+name: storefront
+description: A small application with a private database.
+tags: [development]
+components:
+  network:
+    type: network
+    properties:
+      cidr: "10.42.0.0/16"
+  database:
+    type: database
+    properties:
+      name: storefront
+  api:
+    type: service
+    properties:
+      name: storefront-api
+      database_url: "{{ components.database.endpoint }}"
