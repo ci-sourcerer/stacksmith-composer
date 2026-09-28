@@ -135,9 +135,11 @@ module_mappings:
     description: AWS Lambda function
     tags: [compute, aws]
     source:
-      source: local
+      source: git
       data:
-        path: modules/lambda
+        repo: https://github.com/ci-sourcerer/stacksmith-example-aws-modules.git
+        ref: v0.1.0
+        path: lambda
     auto_inject_inputs: true
     properties:
       function_name:
@@ -163,9 +165,11 @@ module_mappings:
     description: AWS IAM execution role
     tags: [identity, aws]
     source:
-      source: local
+      source: git
       data:
-        path: modules/iam-role
+        repo: https://github.com/ci-sourcerer/stacksmith-example-aws-modules.git
+        ref: v0.1.0
+        path: iam-role
     auto_inject_inputs: true
     properties:
       role_name:
@@ -183,9 +187,11 @@ module_mappings:
     description: Customer-managed IAM policy
     tags: [identity, aws]
     source:
-      source: local
+      source: git
       data:
-        path: modules/iam-policy
+        repo: https://github.com/ci-sourcerer/stacksmith-example-aws-modules.git
+        ref: v0.1.0
+        path: iam-policy
     auto_inject_inputs: true
     properties:
       name:
@@ -201,9 +207,11 @@ module_mappings:
     description: AWS-managed IAM policy reference
     tags: [identity, aws]
     source:
-      source: local
+      source: git
       data:
-        path: modules/managed-policy-reference
+        repo: https://github.com/ci-sourcerer/stacksmith-example-aws-modules.git
+        ref: v0.1.0
+        path: managed-policy-reference
     auto_inject_inputs: true
     properties:
       policy_arn:

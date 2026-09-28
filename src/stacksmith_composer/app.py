@@ -44,6 +44,11 @@ def _principal(request: Request) -> str:
     return session[0] if session else "local-demo"
 
 
+def _github_token(request: Request) -> str | None:
+    session = _identity(request)
+    return session[1] if session else None
+
+
 def _github(request: Request) -> GitHubClient:
     session = _identity(request)
     if session is None:
@@ -109,9 +114,10 @@ def _review(request: Request, draft: Draft) -> tuple[dict[str, Any], dict[str, A
         snapshot["path"],
     )
     # Enforce document limits on the edited source too.
-    catalog = request.app.state.adapter.catalog()
+    github_token = _github_token(request)
+    catalog = request.app.state.adapter.catalog(github_token)
     validate_root_references(load_document(source), catalog)
-    associations = request.app.state.adapter.associations(source)
+    associations = request.app.state.adapter.associations(source, github_token)
     return snapshot, {
         "source": source,
         "diff": source_diff(snapshot["source"], source, snapshot["path"]),
@@ -144,7 +150,7 @@ def health() -> dict[str, str]:
 @router.get("/catalog", dependencies=[Depends(_identity)])
 def catalog(request: Request) -> dict[str, Any]:
     """Return public component metadata from the separate Stacksmith installation."""
-    return request.app.state.adapter.catalog()
+    return request.app.state.adapter.catalog(_github_token(request))
 
 
 @router.get("/platform", dependencies=[Depends(_identity)])

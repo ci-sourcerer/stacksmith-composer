@@ -30,11 +30,11 @@ CATALOG = {
 class FakeAdapter:
     """Replace CLI calls in HTTP contract tests."""
 
-    def catalog(self):
+    def catalog(self, github_token=None):
         """Return test component interfaces."""
         return CATALOG
 
-    def associations(self, source):
+    def associations(self, source, github_token=None):
         """Return an empty association result for a provided stack source."""
         return {"rules": [], "applications": []}
 

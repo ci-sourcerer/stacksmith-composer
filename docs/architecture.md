@@ -13,7 +13,7 @@ Composer is a separate application with a React frontend and a vanilla FastAPI A
 | `src/stacksmith_composer/graph.py` | Reference extraction, edge provenance, and cycle checks |
 | `src/stacksmith_composer/github.py` | GitHub App user-token discovery, snapshots, branches, and PRs |
 | `src/stacksmith_composer/sessions.py` | Encrypted server-side tokens in SQLite |
-| `examples/` | A local platform contract and inspection-only sample modules |
+| `examples/` | Local platform contract, sample stack, validation scripts, and test manifest |
 
 ## Draft flow
 
@@ -49,9 +49,9 @@ FastAPI serves the OpenAPI schema at `/openapi.json`. Development uses Vite's `/
 
 This implementation uses SQLite for sessions and holds drafts in the browser tab. Move durable drafts and jobs to PostgreSQL when introducing shared hosting. Snapshot signing provides integrity, not confidentiality; source is already visible to the authorized browser and signed snapshots must not be logged.
 
-One deployment uses one trusted, local managed config. It does not load configuration selected by a repository or runfile. Platform summaries are allowlisted authored metadata and do not execute hooks. CLI inspection can resolve trusted hooks and remote modules, so it belongs in a sandboxed worker before a production multi-user deployment. Private module authentication is not automatically delegated from the logged-in GitHub user.
+One deployment uses one trusted, local managed config. It does not load configuration selected by a repository or runfile. Platform summaries are allowlisted authored metadata and do not execute hooks. CLI inspection can resolve trusted hooks and remote modules, so it belongs in a sandboxed worker before a production multi-user deployment. Private Git sources receive the signed-in user's short-lived token through Stacksmith's ephemeral Git credential helper.
 
-The subprocess environment excludes application tokens, but HOME remains available for the CLI's normal operation. This does not protect against an approved config containing malicious hooks or against credential access through home-directory files. Production isolation must be enforced outside the Python process.
+The subprocess environment excludes application secrets and ambient GitHub variables, but it includes the current user's Git token when authenticated and leaves HOME available for normal CLI operation. This does not protect against an approved config containing malicious hooks or against credential access through process environment or home-directory files. Production isolation must be enforced outside the Python process.
 
 ## Follow-up contract changes in Stacksmith
 

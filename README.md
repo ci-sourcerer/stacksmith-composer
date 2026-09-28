@@ -12,9 +12,9 @@ The Python project uses [`common-python-tasks`](https://github.com/ci-sourcerer/
 - Catalog and association resolution through the real `stacksmith info` JSON commands.
 - Component property and tag editing, explicit output connections, and stack-level association opt-outs.
 - Source-preserving YAML edits, JSON support, reviewed source download, and a unified diff.
-- Friendly platform configuration view using descriptive metadata rather than backend credentials or Python hook source.
+- Friendly platform configuration view with provider, module, policy, and generation provenance links rather than backend credentials or Python hook source.
 - Optional GitHub App sign-in, topic-based repository discovery, and draft PR creation under the user's permissions.
-- Local example mode that needs no GitHub credentials and creates no cloud infrastructure.
+- Inspection-only AWS example backed by private, immutable GitHub module sources.
 
 ## Local development
 
@@ -27,6 +27,8 @@ cp .env.example .env
 ```
 
 The example assumes a sibling `../stacksmith/.venv/bin/stacksmith` executable. Set `COMPOSER_STACKSMITH_COMMAND` in `.env` if yours is elsewhere. Composer does not install, import, or modify the sibling project. Set `COMPOSER_MODULE_SOURCE_PREFIX` to a trusted filesystem prefix that should be removed from local module paths displayed in the catalog. Module sources outside that prefix remain unchanged.
+
+The AWS example modules live in the private [`stacksmith-example-aws-modules`](https://github.com/ci-sourcerer/stacksmith-example-aws-modules) repository and are pinned to its `v0.1.0` release tag. Anonymous local example mode therefore needs a Git credential that can read that repository. For GitHub CLI development, run `gh auth setup-git` once. In GitHub mode, Composer supplies the signed-in user's short-lived GitHub App token to Stacksmith as an ephemeral Git credential.
 
 Run the API from the project root.
 
@@ -44,13 +46,13 @@ Open <http://127.0.0.1:5173>. Vite proxies `/api` to the API on port 8000. Use `
 
 Package versions are derived from Git tags through `uv-dynamic-versioning`. Shared container tasks are also available, including `poe build-image`, `poe run-container`, and `poe container-shell`. The generated API image runs the `stacksmith-composer` console entry point and listens on `0.0.0.0:8000` by default. The React frontend remains a separate build artifact in this first version, and the API image still needs access to a separately installed Stacksmith executable.
 
-The example composes a container-based AWS Lambda function, its IAM execution role, a customer-managed logging policy, and an AWS-managed read-only policy reference. Dashed lines supply the baseline policy to the role and the role to the function through platform-managed associations. The solid line is an explicit developer-authored attachment from `ReadOnlyAccess` to the role. The local demo only inspects and renders the stack; it does not apply cloud infrastructure. Drag another component from the palette or use its add button. Select a node to edit properties through the visual value editor, then review and download the stack. Each catalog input has its own control; lists and objects can be built recursively, connections appear as named links, and uncommon cases still have an advanced JSON fallback. The editor infers value types from authored data until Stacksmith exposes richer type metadata.
+The example composes a container-based AWS Lambda function, its IAM execution role, a customer-managed logging policy, and an AWS-managed read-only policy reference. Dashed lines supply the baseline policy to the role and the role to the function through platform-managed associations. The solid line is an explicit developer-authored attachment from `ReadOnlyAccess` to the role. The demo only inspects and renders the stack; it does not apply cloud infrastructure. A matching private [`stacksmith-example-aws-stack`](https://github.com/ci-sourcerer/stacksmith-example-aws-stack) repository is tagged `stacksmith-stack` for the authenticated discovery and pull-request flow. Drag another component from the palette or use its add button. Select a node to edit properties through the visual value editor, then review and download the stack. Each catalog input has its own control; lists and objects can be built recursively, connections appear as named links, and uncommon cases still have an advanced JSON fallback. The editor infers value types from authored data until Stacksmith exposes richer type metadata.
 
 Drafts and diagram positions live in the current tab and are not persisted. Download the reviewed source or create a PR to keep changes. The browser warns before leaving a modified draft.
 
 ## GitHub App configuration
 
-Create a GitHub App with repository **Contents: read and write**, **Pull requests: read and write**, and the default metadata access. Install it on the stack repositories you want Composer to access. Set its user authorization callback to `http://127.0.0.1:5173/api/auth/callback` for local development, and use the equivalent HTTPS URL for a hosted environment.
+Create a GitHub App with repository **Contents: read and write**, **Pull requests: read and write**, and the default metadata access. Install it on the stack repositories you want Composer to access and on every private repository referenced by the managed Stacksmith configuration. Set its user authorization callback to `http://127.0.0.1:5173/api/auth/callback` for local development, and use the equivalent HTTPS URL for a hosted environment.
 
 Add these settings to `.env`.
 
@@ -67,7 +69,7 @@ Tag stack repositories with `stacksmith-stack`. Composer enumerates installation
 
 This version uses one administrator-selected managed config for every repository in the deployment. Only connect repositories that use that contract. Repository-selected configs, runfile/environment discovery, and layered edits are follow-up work.
 
-GitHub tokens are encrypted in the local SQLite database and represented in the browser by an opaque HTTP-only cookie. Sessions last at most eight hours; sign in again when they expire. The same stable `COMPOSER_SECRET_KEY` is required across restarts. Changing that key requires clearing the session database. Refresh-token rotation and webhook-driven invalidation are not implemented yet.
+GitHub tokens are encrypted in the local SQLite database and represented in the browser by an opaque HTTP-only cookie. Sessions last at most eight hours; sign in again when they expire. The same stable `COMPOSER_SECRET_KEY` is required across restarts. Changing that key requires clearing the session database. During Stacksmith inspection, the current token is exposed only to the child process through Stacksmith's ephemeral Git credential environment. Refresh-token rotation and webhook-driven invalidation are not implemented yet.
 
 PR creation uses a new deterministic `composer/…` branch and changes only the selected stack file. It checks the captured base commit before writing, rechecks push access, and reuses a previously created PR on retry. Composer never writes directly to the default branch. Full validation, plan, and deployment belong in the repository's CI.
 
@@ -77,11 +79,11 @@ Visual edits support ordinary YAML/JSON mappings and quoted component output exp
 
 Inspection checks public output references, managed association resolution, and component cycles. It is not full Stacksmith validation or an infrastructure plan. Unknown component types, unresolved inputs, or unsupported stacks may block inspection. The catalog currently lists explicit module mappings; convention-based component catalog discovery is not yet implemented.
 
-The platform view describes the authored config file, not the fully merged effective configuration. Backend locations, credentials, hook bodies, and resolved inputs are deliberately excluded.
+The platform view describes the authored config file, not the fully merged effective configuration. It identifies static data, inline Python, local or remote Python scripts, provider registry origins, and module repositories. Backend locations, credentials, hook bodies, and resolved inputs are deliberately excluded.
 
 ## Runtime boundary
 
-This is an initial implementation for local development and trusted organization trials. The CLI adapter uses argument arrays, temporary working directories, a minimal inherited environment, a timeout, and a maximum of two concurrent subprocesses. GitHub tokens and Composer secrets are not passed to those processes. CLI stderr is not returned to browsers because it can contain resolved values.
+This is an initial implementation for local development and trusted organization trials. The CLI adapter uses argument arrays, temporary working directories, a minimal inherited environment, a timeout, and a maximum of two concurrent subprocesses. Composer secrets and ambient GitHub environment variables are not passed to those processes. In GitHub mode, the signed-in user's token is passed as `STACKSMITH_GIT_TOKEN` so approved private module and script sources can be cloned. CLI stderr is not returned to browsers because it can contain resolved values.
 
 A subprocess is not an operating-system security boundary. Managed configuration may execute Python hooks, and the worker still has the operating-system user's filesystem access, including home-directory credentials. Use only administrator-approved configs. Before deploying for untrusted users, introduce a dedicated sandboxed worker identity/container, restricted mounts and network access, bounded process output, persistent job control, and audited configuration provenance. The browser never chooses CLI arguments, executables, or config paths.
 
@@ -102,7 +104,7 @@ npm --prefix web run build
 
 Inspect the imported tasks with `uv run poe --help`. The task list intentionally excludes the `common-python-tasks` FastAPI development-stack tasks.
 
-The real Stacksmith integration test is opt-in and uses only the local example modules.
+The real Stacksmith integration test is opt-in and needs Git read access to the private example modules.
 
 ```sh
 STACKSMITH_TEST_COMMAND="$(pwd)/../stacksmith/.venv/bin/stacksmith" uv run poe test

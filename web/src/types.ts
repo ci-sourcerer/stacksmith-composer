@@ -13,6 +13,7 @@ export interface Port {
 export interface ComponentType {
   display_name: string;
   module_source: string;
+  module_source_url?: string;
   module_path?: string;
   module_version: string;
   tags?: string[];
@@ -61,15 +62,52 @@ export interface Review {
   validation: string;
   associations: { rules: AssociationRule[] };
 }
+export interface SourceDetails {
+  kind: string;
+  label: string;
+  detail: string | null;
+  url: string | null;
+}
+export interface PlatformPort {
+  name: string;
+  description: string;
+}
 export interface Platform {
   description: string;
   source: string;
   scope: string;
-  backend: { kind: string; type: string | null };
-  tools: Record<string, { version?: string }>;
-  providers: { name: string; instances: string[] }[];
-  policies: { name: string; description: string; kind: string }[];
-  associations: { name: string; description: string }[];
+  backend: { kind: string; type: string | null; source: SourceDetails };
+  tools: Record<string, { version?: string; source: SourceDetails }>;
+  providers: {
+    name: string;
+    address: string;
+    version: string | null;
+    source: SourceDetails;
+    instances: {
+      name: string;
+      description: string;
+      source: SourceDetails;
+    }[];
+  }[];
+  components: {
+    name: string;
+    description: string;
+    tags: string[];
+    source: SourceDetails;
+    inputs: PlatformPort[];
+    outputs: PlatformPort[];
+  }[];
+  policies: {
+    name: string;
+    description: string;
+    kind: string;
+    source: SourceDetails;
+  }[];
+  associations: {
+    name: string;
+    description: string;
+    source: SourceDetails;
+  }[];
   required_input_sets: string[];
   has_default_mapping: boolean;
 }

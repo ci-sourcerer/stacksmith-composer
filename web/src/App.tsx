@@ -7,6 +7,7 @@ import {
   BookOpen,
   Check,
   CircleAlert,
+  ExternalLink,
   FileCode2,
   FolderGit2,
   GitBranch,
@@ -579,8 +580,9 @@ export default function App() {
                 <div className="demo-notice">
                   <span className="status-dot" />
                   <span>
-                    Try the composer with local example modules. Changes stay in
-                    this tab; download the reviewed YAML to keep them.
+                    Try the composer with private, versioned example modules.
+                    Changes stay in this tab; download the reviewed YAML to keep
+                    them.
                   </span>
                 </div>
               )}
@@ -801,9 +803,21 @@ export default function App() {
                         {definition.module_path ?? definition.module_version}
                       </span>
                       {!definition.module_path && (
-                        <code title={definition.module_source}>
-                          {definition.module_source}
-                        </code>
+                        <>
+                          <code title={definition.module_source}>
+                            {definition.module_source}
+                          </code>
+                          {definition.module_source_url && (
+                            <a
+                              className="catalog-source-link"
+                              href={definition.module_source_url}
+                              target="_blank"
+                              rel="noreferrer"
+                            >
+                              View source <ExternalLink size={12} />
+                            </a>
+                          )}
+                        </>
                       )}
                     </div>
                     <button

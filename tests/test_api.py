@@ -96,12 +96,64 @@ var_validations:
   environment:
     description: Validate environment
     inline: secret-hook-source
+plan_validations:
+  approved_plan:
+    description: Validate the generated plan
+    rule:
+      script:
+        source: git
+        data:
+          repo: https://github.com/example/platform.git
+          path: policies/plan.py
+          ref: abc123
+provider_mappings:
+  aws:
+    source:
+      source: registry
+      data:
+        address: hashicorp/aws
+        version: "= 6.39.0"
+    instances:
+      default:
+        description: Primary account
+        config:
+          data:
+            region: us-east-1
+module_mappings:
+  service:
+    description: Example service
+    source:
+      source: git
+      data:
+        repo: https://github.com/example/modules.git
+        path: service
+        ref: abc123
+    properties:
+      name:
+        description: Service name
+    outputs:
+      arn:
+        description: Service ARN
 """)
     response = client.get("/api/platform")
     assert response.status_code == 200
     assert "do-not-expose" not in response.text
     assert "secret-hook-source" not in response.text
     assert "Validate environment" in response.text
+    assert response.json()["policies"][0]["source"]["label"] == "Inline Python"
+    assert response.json()["policies"][1]["source"]["url"].endswith(
+        "/example/platform/tree/abc123/policies/plan.py"
+    )
+    assert response.json()["providers"][0]["source"]["url"].endswith(
+        "/provider/hashicorp/aws/v6.39.0"
+    )
+    assert (
+        response.json()["providers"][0]["instances"][0]["source"]["label"]
+        == "Static configuration data"
+    )
+    assert response.json()["components"][0]["source"]["url"].endswith(
+        "/example/modules/tree/abc123/service"
+    )
 
 
 def test_unknown_component_type_blocks_review(client):
@@ -127,5 +179,15 @@ tools:
 """)
     response = client.get("/api/platform")
     assert response.status_code == 200
-    assert response.json()["tools"] == {"tofu": {"version": "1.0.0"}}
+    assert response.json()["tools"] == {
+        "tofu": {
+            "version": "1.0.0",
+            "source": {
+                "kind": "data",
+                "label": "Managed tool configuration",
+                "detail": None,
+                "url": None,
+            },
+        }
+    }
     assert "secret-tool-value" not in response.text

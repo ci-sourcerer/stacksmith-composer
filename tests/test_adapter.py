@@ -10,7 +10,7 @@ from stacksmith_composer.errors import ComposerError
 from stacksmith_composer.settings import Settings
 
 
-def test_command_is_explicit_and_github_credentials_are_not_inherited(
+def test_command_is_explicit_and_only_session_github_credential_is_forwarded(
     tmp_path, monkeypatch
 ):
     monkeypatch.setenv("COMPOSER_GITHUB_CLIENT_SECRET", "must-not-leak")
@@ -26,11 +26,14 @@ def test_command_is_explicit_and_github_credentials_are_not_inherited(
         "subprocess.run",
         return_value=subprocess.CompletedProcess([], 0, json.dumps({"rules": []}), ""),
     ) as run:
-        assert adapter.associations("name: demo\ncomponents: {}") == {"rules": []}
+        assert adapter.associations("name: demo\ncomponents: {}", "session-token") == {
+            "rules": []
+        }
     assert run.call_args.kwargs["shell"] is False
     assert "GITHUB_TOKEN" not in run.call_args.kwargs["env"]
     assert "COMPOSER_GITHUB_CLIENT_SECRET" not in run.call_args.kwargs["env"]
     assert "STACKSMITH_RUN_FILE" not in run.call_args.kwargs["env"]
+    assert run.call_args.kwargs["env"]["STACKSMITH_GIT_TOKEN"] == "session-token"
     assert not Path(run.call_args.kwargs["cwd"]).exists()
 
 
@@ -65,6 +68,7 @@ def test_cli_stderr_is_not_exposed(tmp_path):
 
 
 def test_catalog_removes_configured_module_source_prefix(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("COMPOSER_MODULE_SOURCE_PREFIX", str(tmp_path))
     adapter = StacksmithAdapter(
         Settings(_env_file=None, config=tmp_path / "trusted.yaml")
@@ -78,8 +82,8 @@ def test_catalog_removes_configured_module_source_prefix(tmp_path, monkeypatch):
                 "module_version": "local",
             },
             "remote": {
-                "module_source": "/another/root/module",
-                "module_version": "1.2.3",
+                "module_source": "https://github.com/example/modules.git//service",
+                "module_version": "v1.2.3",
             },
         },
     ):
@@ -90,7 +94,10 @@ def test_catalog_removes_configured_module_source_prefix(tmp_path, monkeypatch):
                 "module_version": "local",
             },
             "remote": {
-                "module_source": "/another/root/module",
-                "module_version": "1.2.3",
+                "module_source": "https://github.com/example/modules.git//service",
+                "module_source_url": (
+                    "https://github.com/example/modules/tree/v1.2.3/service"
+                ),
+                "module_version": "v1.2.3",
             },
         }
