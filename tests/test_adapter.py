@@ -131,6 +131,11 @@ def test_catalog_removes_configured_module_source_prefix(tmp_path, monkeypatch):
             None,
             "https://github.com/example/modules",
         ),
+        (
+            "https://github.com/example/modules.git",
+            "v1.0.0",
+            "https://github.com/example/modules/tree/v1.0.0",
+        ),
     ],
 )
 def test_catalog_module_source_url_rendering(
