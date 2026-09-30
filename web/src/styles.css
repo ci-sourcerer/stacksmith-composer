@@ -598,7 +598,7 @@ input[type="checkbox"] {
 .react-flow__edge:hover .react-flow__edge-textwrapper,
 .react-flow__edge.selected .react-flow__edge-textwrapper {
   opacity: 1;
-  pointer-events: all;
+  pointer-events: auto;
 }
 .route-point {
   fill: var(--paper);
