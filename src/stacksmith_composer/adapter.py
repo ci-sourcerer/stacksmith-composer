@@ -191,12 +191,13 @@ def _module_source_url(source: str, version: Any = None) -> str | None:
     if len(repository.split("/")) != 2:
         return None
     url = f"https://github.com/{repository}"
+    has_subpath_separator = bool(separator)
     query_ref = parse_qs(parsed.query).get("ref", [None])[0]
     ref = query_ref if query_ref else version
     if ref:
         url += f"/tree/{quote(str(ref), safe='')}"
-    elif separator and module_path:
+    elif has_subpath_separator:
         url += "/tree/HEAD"
-    if separator and module_path:
+    if has_subpath_separator and module_path:
         url += f"/{'/'.join(quote(part, safe='') for part in module_path.split('/'))}"
     return url
