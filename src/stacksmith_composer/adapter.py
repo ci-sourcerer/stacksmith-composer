@@ -197,6 +197,6 @@ def _module_source_url(source: str, version: Any = None) -> str | None:
         url += f"/tree/{quote(str(ref), safe='')}"
     elif separator and module_path:
         url += "/tree/HEAD"
-    if separator and module_path and (ref or module_path):
+    if separator and module_path:
         url += f"/{'/'.join(quote(part, safe='') for part in module_path.split('/'))}"
     return url

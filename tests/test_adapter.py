@@ -123,7 +123,7 @@ def test_catalog_removes_configured_module_source_prefix(tmp_path, monkeypatch):
         ),
     ],
 )
-def test_catalog_module_source_url_includes_module_path_without_query_ref(
+def test_catalog_module_source_url_rendering(
     tmp_path, module_source, module_version, expected
 ):
     adapter = StacksmithAdapter(
