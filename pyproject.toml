@@ -16,7 +16,7 @@ dependencies = [
 dynamic = ["version"]
 
 [tool.poe]
-include_script = "common_python_tasks:tasks(exclude_tags=['fastapi'])"
+include_script = "common_python_tasks:tasks(include_tags=[])"
 
 [tool.poe.env]
 CONTAINER_APT_PACKAGES = "git"
