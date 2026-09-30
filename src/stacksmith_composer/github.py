@@ -1,5 +1,6 @@
 import base64
 import hashlib
+from collections.abc import Callable
 from typing import Any
 from urllib.parse import quote
 
@@ -147,13 +148,13 @@ class GitHubClient:
         Raises:
             ComposerError: If the file is oversized, unsupported, or inaccessible.
         """
-        if not _is_stack_path(path):
-            raise ComposerError("Choose a discovered stack file.")
         return self._read_repository_file(
             owner,
             repo,
             path,
             ref,
+            path_validator=lambda value: _is_stack_path(value)
+            and all(part not in {"..", "."} for part in value.split("/")),
             invalid_path_error=("Choose a discovered stack file.", None),
             not_file_error=("Choose a regular stack file.", None),
             unreadable_error=(
@@ -185,6 +186,8 @@ class GitHubClient:
             repo,
             path,
             ref,
+            path_validator=lambda value: bool(value)
+            and all(part not in {"..", "."} for part in value.split("/")),
             invalid_path_error=("The managed config file path is invalid.", 503),
             not_file_error=("The managed config file is unavailable.", 503),
             unreadable_error=("The managed config file is too large.", 503),
@@ -199,12 +202,13 @@ class GitHubClient:
         path: str,
         ref: str,
         *,
+        path_validator: Callable[[str], bool],
         invalid_path_error: tuple[str, int | None],
         not_file_error: tuple[str, int | None],
         unreadable_error: tuple[str, int | None],
         decode_error: tuple[str, int | None],
     ) -> tuple[str, dict[str, Any]]:
-        if not path or any(part in {"..", "."} for part in path.split("/")):
+        if not path_validator(path):
             raise ComposerError(*invalid_path_error)
         payload = self._request(
             "GET",

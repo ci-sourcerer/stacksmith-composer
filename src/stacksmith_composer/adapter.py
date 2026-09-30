@@ -198,6 +198,7 @@ def _module_source_url(source: str, version: Any = None) -> str | None:
         url += f"/tree/{quote(str(ref), safe='')}"
     elif has_subpath_separator:
         url += "/tree/HEAD"
+    # Without an explicit ref or module subpath, link to the repository root.
     if has_subpath_separator and module_path:
         url += f"/{'/'.join(quote(part, safe='') for part in module_path.split('/'))}"
     return url
