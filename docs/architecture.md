@@ -5,7 +5,7 @@ Composer is a separate application with a React frontend and a vanilla FastAPI A
 ## Project layout
 
 | Path | Responsibility |
-| --- | --- |
+| - | - |
 | `web/` | React application, graph interactions, catalog, properties, platform view, and source review |
 | `src/stacksmith_composer/app.py` | HTTP routes, auth flow, signed snapshots, and application composition |
 | `src/stacksmith_composer/adapter.py` | Separate Stacksmith executable, bounded subprocess concurrency, and JSON inspection |
@@ -28,7 +28,7 @@ GitHub may advance the base after the preflight check; the PR still contains a c
 ## HTTP surface
 
 | Endpoint | Purpose |
-| --- | --- |
+| - | - |
 | `GET /api/session` | Current mode and public login |
 | `GET /api/health` | Liveness |
 | `GET /api/catalog` | Stacksmith module inspection |

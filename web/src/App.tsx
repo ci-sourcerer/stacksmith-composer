@@ -42,12 +42,15 @@ import type {
   Catalog,
   Platform,
   Repository,
+  Relationship,
   Review,
   Session,
   Snapshot,
 } from "./types";
 
 type View = "compose" | "catalog" | "platform" | "review";
+const CATALOG_PAGE_SIZE = 12;
+const REPOSITORY_PAGE_SIZE = 8;
 
 function downloadSource(source: string, path: string) {
   const url = URL.createObjectURL(new Blob([source], { type: "text/plain" }));
@@ -74,13 +77,14 @@ export default function App() {
     undefined,
     () => createDraftHistory(),
   );
-  const { components, positions, disabled } = draftHistory.present;
+  const { components, positions, routes, disabled } = draftHistory.present;
   const [selected, setSelected] = useState<string | null>(null);
   const [selectedRelationship, setSelectedRelationship] = useState<
     string | null
   >(null);
   const [view, setView] = useState<View>("compose");
   const [search, setSearch] = useState("");
+  const [catalogPage, setCatalogPage] = useState(0);
   const [review, setReview] = useState<Review>();
   const [inspecting, setInspecting] = useState(false);
   const [validationError, setValidationError] = useState("");
@@ -89,6 +93,8 @@ export default function App() {
   const [repositories, setRepositories] = useState<Repository[]>([]);
   const [picker, setPicker] = useState(false);
   const [chosenRepo, setChosenRepo] = useState("");
+  const [repositorySearch, setRepositorySearch] = useState("");
+  const [repositoryPage, setRepositoryPage] = useState(0);
   const [stackPaths, setStackPaths] = useState<string[]>([]);
   const [pathsLoading, setPathsLoading] = useState(false);
   const [creatingPR, setCreatingPR] = useState(false);
@@ -98,7 +104,9 @@ export default function App() {
     dispatchDraft({
       type: "reset",
       draft: {
-        positions: {},
+        positions:
+          opened.document?.metadata?.stacksmith_composer?.positions ?? {},
+        routes: opened.document?.metadata?.stacksmith_composer?.routes ?? [],
         components: opened.document?.components ?? {},
         disabled: opened.document?.disabled_associations ?? [],
       },
@@ -152,7 +160,6 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    setReview(undefined);
     setPr(undefined);
     if (!snapshot?.editable) {
       setInspecting(false);
@@ -168,6 +175,8 @@ export default function App() {
           snapshot: snapshot.snapshot,
           components,
           disabled_associations: disabled,
+          positions,
+          routes,
         },
         abort.signal,
       )
@@ -175,7 +184,10 @@ export default function App() {
           if (!abort.signal.aborted) setReview(result);
         })
         .catch((error) => {
-          if (!abort.signal.aborted) setValidationError(errorMessage(error));
+          if (!abort.signal.aborted) {
+            setReview(undefined);
+            setValidationError(errorMessage(error));
+          }
         })
         .finally(() => {
           if (!abort.signal.aborted) setInspecting(false);
@@ -185,7 +197,7 @@ export default function App() {
       clearTimeout(timer);
       abort.abort();
     };
-  }, [snapshot, components, disabled]);
+  }, [snapshot, components, disabled, positions, routes]);
 
   useEffect(() => {
     if (!chosenRepo) return;
@@ -214,7 +226,15 @@ export default function App() {
     (JSON.stringify(components) !==
       JSON.stringify(snapshot.document.components ?? {}) ||
       JSON.stringify(disabled) !==
-        JSON.stringify(snapshot.document.disabled_associations ?? [])),
+        JSON.stringify(snapshot.document.disabled_associations ?? []) ||
+      JSON.stringify(positions) !==
+        JSON.stringify(
+          snapshot.document.metadata?.stacksmith_composer?.positions ?? {},
+        ) ||
+      JSON.stringify(routes) !==
+        JSON.stringify(
+          snapshot.document.metadata?.stacksmith_composer?.routes ?? [],
+        )),
   );
   useEffect(() => {
     function preventLoss(event: BeforeUnloadEvent) {
@@ -280,6 +300,11 @@ export default function App() {
           connection.target,
           connection.targetHandle!.slice(3),
         ),
+        routes: draft.routes.filter(
+          (route) =>
+            route.target !== connection.target ||
+            route.property !== connection.targetHandle!.slice(3),
+        ),
       }),
     });
   }
@@ -301,6 +326,9 @@ export default function App() {
         positions: Object.fromEntries(
           Object.entries(draft.positions).filter(([key]) => key !== name),
         ),
+        routes: draft.routes.filter(
+          (route) => route.source !== name && route.target !== name,
+        ),
       }),
     });
     setSelected(null);
@@ -320,10 +348,16 @@ export default function App() {
               disabled: draft.disabled.includes(relationship.rule)
                 ? draft.disabled
                 : [...draft.disabled, relationship.rule],
+              routes: draft.routes.filter(
+                (route) => relationshipKey(route) !== key,
+              ),
             }
           : {
               ...draft,
               components: removeReference(draft.components, relationship),
+              routes: draft.routes.filter(
+                (route) => relationshipKey(route) !== key,
+              ),
             },
     });
     setSelectedRelationship(null);
@@ -339,7 +373,40 @@ export default function App() {
       record,
       update: (draft) => ({
         ...draft,
-        positions: { ...draft.positions, [name]: position },
+        positions: {
+          ...draft.positions,
+          [name]: {
+            x: Math.round(position.x),
+            y: Math.round(position.y),
+          },
+        },
+      }),
+    });
+  }
+
+  function changeRoute(
+    relationship: Relationship,
+    points: { x: number; y: number }[],
+    record: boolean,
+  ) {
+    const key = relationshipKey(relationship);
+    dispatchDraft({
+      type: "change",
+      record,
+      update: (draft) => ({
+        ...draft,
+        routes: points.length
+          ? [
+              ...draft.routes.filter((route) => relationshipKey(route) !== key),
+              {
+                ...relationship,
+                points: points.map((point) => ({
+                  x: Math.round(point.x),
+                  y: Math.round(point.y),
+                })),
+              },
+            ]
+          : draft.routes.filter((route) => relationshipKey(route) !== key),
       }),
     });
   }
@@ -376,6 +443,8 @@ export default function App() {
           snapshot: snapshot.snapshot,
           components,
           disabled_associations: disabled,
+          positions,
+          routes,
         }),
       );
     } catch (error) {
@@ -418,6 +487,32 @@ export default function App() {
       .toLowerCase()
       .includes(search.toLowerCase()),
   );
+  const catalogPageCount = Math.max(
+    1,
+    Math.ceil(filteredCatalog.length / CATALOG_PAGE_SIZE),
+  );
+  const activeCatalogPage = Math.min(catalogPage, catalogPageCount - 1);
+  const visibleCatalog = filteredCatalog.slice(
+    activeCatalogPage * CATALOG_PAGE_SIZE,
+    (activeCatalogPage + 1) * CATALOG_PAGE_SIZE,
+  );
+  const filteredRepositories = repositories.filter((repo) =>
+    `${repo.name} ${repo.description ?? ""}`
+      .toLowerCase()
+      .includes(repositorySearch.toLowerCase()),
+  );
+  const repositoryPageCount = Math.max(
+    1,
+    Math.ceil(filteredRepositories.length / REPOSITORY_PAGE_SIZE),
+  );
+  const activeRepositoryPage = Math.min(
+    repositoryPage,
+    repositoryPageCount - 1,
+  );
+  const visibleRepositories = filteredRepositories.slice(
+    activeRepositoryPage * REPOSITORY_PAGE_SIZE,
+    (activeRepositoryPage + 1) * REPOSITORY_PAGE_SIZE,
+  );
   return (
     <div className="application">
       <header className="topbar">
@@ -429,8 +524,6 @@ export default function App() {
             stacksmith<span>composer</span>
           </strong>
         </a>
-        <div className="topbar-divider" />
-        <span className="workspace-label">Infrastructure workspace</span>
         <div className="topbar-right">
           {session?.mode === "demo" ? (
             <span className="badge demo-badge">LOCAL EXAMPLE</span>
@@ -564,7 +657,7 @@ export default function App() {
                 ) : (
                   <button
                     className="button primary"
-                    disabled={!snapshot || !editable}
+                    disabled={!snapshot || !editable || !dirty}
                     onClick={() => setView("review")}
                   >
                     Review changes
@@ -681,7 +774,9 @@ export default function App() {
                   <div className="diagram-column">
                     <Canvas
                       positions={positions}
+                      routes={routes}
                       onPositionChange={changePosition}
+                      onRouteChange={changeRoute}
                       key={snapshot.snapshot}
                       components={components}
                       catalog={catalog}
@@ -759,11 +854,14 @@ export default function App() {
                   placeholder="Search by name, type, or tag…"
                   aria-label="Search catalog"
                   value={search}
-                  onChange={(event) => setSearch(event.target.value)}
+                  onChange={(event) => {
+                    setSearch(event.target.value);
+                    setCatalogPage(0);
+                  }}
                 />
               </label>
               <div className="catalog-grid">
-                {filteredCatalog.map(([type, definition]) => (
+                {visibleCatalog.map(([type, definition]) => (
                   <article className="catalog-card" key={type}>
                     <div className="catalog-card-heading">
                       <span
@@ -831,6 +929,40 @@ export default function App() {
                   </article>
                 ))}
               </div>
+              {!filteredCatalog.length && (
+                <p className="catalog-empty">No matching components.</p>
+              )}
+              {catalogPageCount > 1 && (
+                <nav className="catalog-pagination" aria-label="Catalog pages">
+                  <span>
+                    Showing {activeCatalogPage * CATALOG_PAGE_SIZE + 1}–
+                    {Math.min(
+                      (activeCatalogPage + 1) * CATALOG_PAGE_SIZE,
+                      filteredCatalog.length,
+                    )}{" "}
+                    of {filteredCatalog.length}
+                  </span>
+                  <div>
+                    <button
+                      className="button"
+                      disabled={activeCatalogPage === 0}
+                      onClick={() => setCatalogPage(activeCatalogPage - 1)}
+                    >
+                      Previous
+                    </button>
+                    <span aria-live="polite">
+                      Page {activeCatalogPage + 1} of {catalogPageCount}
+                    </span>
+                    <button
+                      className="button"
+                      disabled={activeCatalogPage + 1 === catalogPageCount}
+                      onClick={() => setCatalogPage(activeCatalogPage + 1)}
+                    >
+                      Next
+                    </button>
+                  </div>
+                </nav>
+              )}
             </main>
           )}
           {view === "platform" && platform && (
@@ -842,8 +974,8 @@ export default function App() {
                 <div className="eyebrow">REVIEW BEFORE YOU PROPOSE</div>
                 <h2>A small, readable change.</h2>
                 <p className="muted">
-                  Only authored stack changes are included. Diagram positions
-                  and resolved association values stay out of the file.
+                  Authored stack changes and diagram layout are included.
+                  Resolved association values stay out of the file.
                 </p>
                 {validationError && (
                   <div className="notice error-text">{validationError}</div>
@@ -993,26 +1125,84 @@ export default function App() {
               Repositories shared with your GitHub App and tagged{" "}
               <code>stacksmith-stack</code>.
             </p>
-            <label className="field-label">
-              Repository
-              <select
-                value={chosenRepo}
-                onChange={(event) => setChosenRepo(event.target.value)}
-              >
-                <option value="">Choose a repository</option>
-                {repositories.map((repo) => (
-                  <option value={repo.name} key={repo.name}>
-                    {repo.name}
-                    {repo.writable ? "" : " (read only)"}
-                  </option>
-                ))}
-              </select>
+            <label className="repository-search">
+              <Search size={16} />
+              <input
+                type="search"
+                placeholder="Search repositories"
+                aria-label="Search repositories"
+                value={repositorySearch}
+                onChange={(event) => {
+                  setRepositorySearch(event.target.value);
+                  setRepositoryPage(0);
+                }}
+              />
+              <span>{filteredRepositories.length} repositories</span>
             </label>
             {!repositories.length && (
               <div className="notice">
                 No matching repositories found. Install your GitHub App on a
                 repository and add the stacksmith-stack topic, then reload.
               </div>
+            )}
+            {repositories.length > 0 && !filteredRepositories.length && (
+              <p className="repository-empty">
+                No repositories match that search.
+              </p>
+            )}
+            {!!visibleRepositories.length && (
+              <>
+                <div className="repository-list" aria-label="Repositories">
+                  {visibleRepositories.map((repo) => (
+                    <button
+                      className={`repository-option ${chosenRepo === repo.name ? "is-selected" : ""}`}
+                      key={repo.name}
+                      aria-pressed={chosenRepo === repo.name}
+                      onClick={() => setChosenRepo(repo.name)}
+                    >
+                      <span className="repository-option-copy">
+                        <strong>{repo.name}</strong>
+                        {repo.description && <small>{repo.description}</small>}
+                      </span>
+                      <span
+                        className={`repository-access ${repo.writable ? "is-writable" : ""}`}
+                      >
+                        {repo.writable ? "Can edit" : "Read only"}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+                {repositoryPageCount > 1 && (
+                  <nav
+                    className="repository-pagination"
+                    aria-label="Repository pages"
+                  >
+                    <button
+                      className="text-button"
+                      disabled={activeRepositoryPage === 0}
+                      onClick={() =>
+                        setRepositoryPage(activeRepositoryPage - 1)
+                      }
+                    >
+                      <ArrowLeft size={14} /> Previous
+                    </button>
+                    <span>
+                      Page {activeRepositoryPage + 1} of {repositoryPageCount}
+                    </span>
+                    <button
+                      className="text-button"
+                      disabled={
+                        activeRepositoryPage + 1 === repositoryPageCount
+                      }
+                      onClick={() =>
+                        setRepositoryPage(activeRepositoryPage + 1)
+                      }
+                    >
+                      Next <ArrowRight size={14} />
+                    </button>
+                  </nav>
+                )}
+              </>
             )}
             <div className="stack-list">
               {pathsLoading ? (

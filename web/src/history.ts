@@ -1,9 +1,10 @@
-import type { Components } from "./types";
+import type { Components, DiagramRoute } from "./types";
 
 export interface Draft {
   components: Components;
   disabled: string[];
   positions: Record<string, { x: number; y: number }>;
+  routes: DiagramRoute[];
 }
 
 export interface DraftHistory {
@@ -31,6 +32,7 @@ export function createDraftHistory(draft?: Partial<Draft>): DraftHistory {
       components: draft?.components ?? {},
       disabled: draft?.disabled ?? [],
       positions: draft?.positions ?? {},
+      routes: draft?.routes ?? [],
     },
     future: [],
   };
@@ -96,6 +98,10 @@ export function keyboardCommand(event: {
 export function isTextEditingTarget(target: EventTarget | null): boolean {
   return (
     target instanceof Element &&
-    Boolean(target.closest("input, textarea, select, [contenteditable='true']"))
+    Boolean(
+      target.closest(
+        "input, textarea, select, [contenteditable='true'], [data-keyboard-owner='true']",
+      ),
+    )
   );
 }

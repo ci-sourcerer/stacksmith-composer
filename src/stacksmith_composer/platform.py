@@ -5,34 +5,43 @@ from urllib.parse import quote, urlparse
 
 from ruamel.yaml import YAML
 
+_SENSITIVE_KEY = re.compile(
+    r"(?:password|secret|token|credential|private.?key|access.?key)", re.IGNORECASE
+)
 
-def platform_summary(path: Path) -> dict[str, Any]:
-    """Expose descriptive policy metadata without configuration values or hook code.
+
+def platform_summary(source: Path | str) -> dict[str, Any]:
+    """Expose authored platform metadata and readable source previews.
 
     Args:
-        path: Administrator-selected local managed configuration.
+        source: Administrator-selected local config path or YAML content.
 
     Returns:
         An allowlisted summary of the authored configuration, not effective values.
     """
-    config = YAML(typ="safe").load(path.read_text())
+    config = YAML(typ="safe").load(
+        source.read_text() if isinstance(source, Path) else source
+    )
     return {
         "description": config.get(
             "description", "Platform-managed Stacksmith contract"
         ),
-        "source": path.name,
+        "source": source.name if isinstance(source, Path) else "GitHub managed config",
         "scope": "Authored configuration; layered and runtime values are not resolved.",
         "backend": {
             "kind": next(iter(config.get("backend", {})), "unknown"),
             "type": config.get("backend", {}).get("data", {}).get("type"),
-            "source": _generated_source(config.get("backend", {})),
+            "path": config.get("backend", {}).get("data", {}).get("path"),
+            "source": _source(
+                "data",
+                "Static configuration data",
+                configuration=_public_configuration(
+                    config.get("backend", {}).get("data", {})
+                ),
+            ),
         },
         "tools": {
-            name: {
-                "version": spec.get("version"),
-                "source": _source("data", "Managed tool configuration"),
-            }
-            for name, spec in config.get("tools", {}).items()
+            name: _tool_summary(spec) for name, spec in config.get("tools", {}).items()
         },
         "providers": [
             _provider_summary(name, spec)
@@ -67,7 +76,10 @@ def platform_summary(path: Path) -> dict[str, Any]:
                 "description": spec.get("description", ""),
                 "kind": kind,
                 "source": _generated_source(
-                    spec.get("rule", {}) if kind == "plan_validations" else spec
+                    spec.get("rule", {}) if kind == "plan_validations" else spec,
+                    config_dir=(
+                        source.resolve().parent if isinstance(source, Path) else None
+                    ),
                 ),
             }
             for kind in ("var_validations", "plan_validations")
@@ -77,7 +89,11 @@ def platform_summary(path: Path) -> dict[str, Any]:
             {
                 "name": name,
                 "description": spec.get("description", ""),
-                "source": _source("data", "Declarative platform configuration"),
+                "source": _source(
+                    "data",
+                    "Declarative platform configuration",
+                    configuration=_public_configuration(spec),
+                ),
             }
             for name, spec in config.get("associations", {}).items()
         ],
@@ -108,21 +124,42 @@ def _provider_summary(name: str, spec: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _generated_source(spec: dict[str, Any]) -> dict[str, str | None]:
+def _tool_summary(spec: dict[str, Any]) -> dict[str, Any]:
+    source = _source("data", "Managed tool configuration")
+    source["configuration"] = _public_configuration(spec)
+    return {"version": spec.get("version"), "source": source}
+
+
+def _generated_source(
+    spec: dict[str, Any],
+    *,
+    include_configuration: bool = True,
+    config_dir: Path | None = None,
+) -> dict[str, Any]:
     if "inline" in spec:
-        return _source("inline", "Inline Python")
+        source = _source("inline", "Inline Python")
+        source["content"] = spec["inline"]
+        return source
     if "script" in spec:
-        return _script_source(spec["script"])
+        return _script_source(spec["script"], config_dir)
     if "data" in spec:
-        return _source("data", "Static configuration data")
+        source = _source("data", "Static configuration data")
+        if include_configuration:
+            source["configuration"] = _public_configuration(spec["data"])
+        return source
     return _source("unknown", "Source not declared")
 
 
-def _script_source(reference: dict[str, Any]) -> dict[str, str | None]:
+def _script_source(
+    reference: dict[str, Any], config_dir: Path | None = None
+) -> dict[str, Any]:
     data = reference.get("data", {})
     match reference.get("source"):
         case "local":
-            return _source("script", "Local Python script", detail=data.get("path"))
+            source = _source("script", "Local Python script", detail=data.get("path"))
+            if config_dir is not None and isinstance(data.get("path"), str):
+                source["content"] = _read_local_script(config_dir, data["path"])
+            return source
         case "git":
             return _source(
                 "script",
@@ -168,9 +205,43 @@ def _module_source(reference: dict[str, Any]) -> dict[str, str | None]:
 
 
 def _source(
-    kind: str, label: str, url: str | None = None, detail: str | None = None
-) -> dict[str, str | None]:
-    return {"kind": kind, "label": label, "detail": detail, "url": url}
+    kind: str,
+    label: str,
+    url: str | None = None,
+    detail: str | None = None,
+    configuration: Any = None,
+) -> dict[str, Any]:
+    source = {"kind": kind, "label": label, "detail": detail, "url": url}
+    if configuration is not None:
+        source["configuration"] = configuration
+    return source
+
+
+def _read_local_script(config_dir: Path, relative_path: str) -> str | None:
+    script_path = (config_dir / relative_path).resolve()
+    if not script_path.is_relative_to(config_dir) or not script_path.is_file():
+        return None
+    try:
+        if script_path.stat().st_size > 65536:
+            return None
+        return script_path.read_text()
+    except (OSError, UnicodeDecodeError):
+        return None
+
+
+def _public_configuration(value: Any) -> Any:
+    if isinstance(value, dict):
+        return {
+            key: (
+                "[redacted]"
+                if _SENSITIVE_KEY.search(str(key))
+                else _public_configuration(item)
+            )
+            for key, item in value.items()
+        }
+    if isinstance(value, list):
+        return [_public_configuration(item) for item in value]
+    return value
 
 
 def _git_detail(data: dict[str, Any]) -> str:

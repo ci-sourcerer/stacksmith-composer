@@ -171,6 +171,44 @@ class GitHubClient:
         except UnicodeDecodeError as exc:
             raise ComposerError("Stack files must contain UTF-8 text.") from exc
 
+    def repository_file(
+        self, owner: str, repo: str, path: str, ref: str
+    ) -> tuple[str, str]:
+        """Read a bounded UTF-8 file and return its content and blob revision.
+
+        Args:
+            owner: Repository owner.
+            repo: Repository name.
+            path: Repository-relative file path.
+            ref: Branch, tag, or commit reference.
+
+        Returns:
+            File content and its Git blob SHA.
+
+        Raises:
+            ComposerError: If the file is oversized, unsupported, or inaccessible.
+        """
+        if not path or any(part in {"..", "."} for part in path.split("/")):
+            raise ComposerError("The managed config file path is invalid.", 503)
+        payload = self._request(
+            "GET",
+            f"/repos/{_segment(owner)}/{_segment(repo)}/contents/"
+            f"{quote(path, safe='/')}",
+            params={"ref": ref},
+        )
+        if not isinstance(payload, dict) or payload.get("type") != "file":
+            raise ComposerError("The managed config file is unavailable.", 503)
+        if (
+            payload.get("size", 0) > MAX_SOURCE_BYTES
+            or payload.get("encoding") != "base64"
+        ):
+            raise ComposerError("The managed config file is too large.", 503)
+        try:
+            content = base64.b64decode(payload["content"]).decode("utf-8")
+        except (KeyError, ValueError, UnicodeDecodeError) as exc:
+            raise ComposerError("The managed config must be UTF-8 text.", 503) from exc
+        return content, str(payload["sha"])
+
     def create_pr(self, snapshot: dict[str, Any], source: str) -> dict[str, Any]:
         """Create a deterministic branch and PR for exactly the reviewed stack source.
 

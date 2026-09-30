@@ -85,8 +85,9 @@ def test_read_only_source_still_opens(client, tmp_path):
     assert "whole-file Jinja" in response.json()["reason"]
 
 
-def test_platform_view_does_not_expose_backend_values_or_hook_source(client, tmp_path):
+def test_platform_view_exposes_sources_and_hides_backend_values(client, tmp_path):
     client.app.state.settings.config = tmp_path / "platform.yaml"
+    (tmp_path / "validate.py").write_text("def validate(value): return 'pass'\n")
     client.app.state.settings.config.write_text("""
 backend:
   data:
@@ -97,6 +98,13 @@ var_validations:
     description: Validate environment
     inline: secret-hook-source
 plan_validations:
+  local_script:
+    description: Local source preview
+    rule:
+      script:
+        source: local
+        data:
+          path: validate.py
   approved_plan:
     description: Validate the generated plan
     rule:
@@ -114,11 +122,12 @@ provider_mappings:
         address: hashicorp/aws
         version: "= 6.39.0"
     instances:
-      default:
-        description: Primary account
-        config:
-          data:
-            region: us-east-1
+        default:
+          description: Primary account
+          config:
+            data:
+              region: us-east-1
+              session_token: do-not-expose
 module_mappings:
   service:
     description: Example service
@@ -134,14 +143,47 @@ module_mappings:
     outputs:
       arn:
         description: Service ARN
+tools:
+  tofu:
+    version: 1.8.0
+    binary: tofu
+    api_token: do-not-expose
+associations:
+  execution_role:
+    description: Attach the managed role.
+    producers:
+      select: component_type == 'role'
+    consumers:
+      select: component_type == 'function'
+    bindings:
+      - output: arn
+        property: role_arn
+    password: do-not-expose
 """)
     response = client.get("/api/platform")
     assert response.status_code == 200
     assert "do-not-expose" not in response.text
-    assert "secret-hook-source" not in response.text
+    assert response.json()["backend"]["source"]["configuration"] == {
+        "type": "s3",
+        "secret_key": "[redacted]",
+    }
+    assert response.json()["tools"]["tofu"]["source"]["configuration"] == {
+        "version": "1.8.0",
+        "binary": "tofu",
+        "api_token": "[redacted]",
+    }
+    assert response.json()["associations"][0]["source"]["configuration"][
+        "bindings"
+    ] == [{"output": "arn", "property": "role_arn"}]
+    assert (
+        response.json()["associations"][0]["source"]["configuration"]["password"]
+        == "[redacted]"
+    )
+    assert "secret-hook-source" in response.text
+    assert "def validate(value): return 'pass'" in response.text
     assert "Validate environment" in response.text
     assert response.json()["policies"][0]["source"]["label"] == "Inline Python"
-    assert response.json()["policies"][1]["source"]["url"].endswith(
+    assert response.json()["policies"][2]["source"]["url"].endswith(
         "/example/platform/tree/abc123/policies/plan.py"
     )
     assert response.json()["providers"][0]["source"]["url"].endswith(
@@ -151,6 +193,9 @@ module_mappings:
         response.json()["providers"][0]["instances"][0]["source"]["label"]
         == "Static configuration data"
     )
+    assert response.json()["providers"][0]["instances"][0]["source"][
+        "configuration"
+    ] == {"region": "us-east-1", "session_token": "[redacted]"}
     assert response.json()["components"][0]["source"]["url"].endswith(
         "/example/modules/tree/abc123/service"
     )
@@ -166,7 +211,7 @@ def test_oauth_state_is_required(client):
     assert client.get("/api/auth/callback?code=example&state=bad").status_code == 401
 
 
-def test_platform_tool_metadata_does_not_expose_additional_fields(client, tmp_path):
+def test_platform_tool_metadata_exposes_sanitized_configuration(client, tmp_path):
     client.app.state.settings.config = tmp_path / "platform.yaml"
     client.app.state.settings.config.write_text("""
 backend:
@@ -187,6 +232,10 @@ tools:
                 "label": "Managed tool configuration",
                 "detail": None,
                 "url": None,
+                "configuration": {
+                    "version": "1.0.0",
+                    "private_token": "[redacted]",
+                },
             },
         }
     }

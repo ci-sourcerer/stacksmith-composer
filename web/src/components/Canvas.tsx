@@ -11,20 +11,33 @@ import {
   applyNodeChanges,
   useReactFlow,
   type Connection,
-  type Edge,
   type NodeChange,
 } from "@xyflow/react";
 import { ComponentNode, type ComposerNode } from "./ComponentNode";
+import { RoutedEdge, type RoutedEdgeDefinition } from "./RoutedEdge";
 import { relationshipKey } from "../model";
-import type { Catalog, Components, Relationship } from "../types";
+import type {
+  Catalog,
+  Components,
+  DiagramPoint,
+  DiagramRoute,
+  Relationship,
+} from "../types";
 import "@xyflow/react/dist/style.css";
 
 const nodeTypes = { component: ComponentNode };
+const edgeTypes = { route: RoutedEdge };
 interface Props {
   positions: Record<string, { x: number; y: number }>;
+  routes: DiagramRoute[];
   onPositionChange: (
     name: string,
     position: { x: number; y: number },
+    record: boolean,
+  ) => void;
+  onRouteChange: (
+    relationship: Relationship,
+    points: DiagramPoint[],
     record: boolean,
   ) => void;
   components: Components;
@@ -73,36 +86,54 @@ function Diagram(props: Props) {
     );
   }, [props.components, props.catalog, props.selected, positions]);
 
-  const edges = useMemo<Edge[]>(
+  const edges = useMemo<RoutedEdgeDefinition[]>(
     () =>
-      props.relationships.map((edge) => ({
-        id: relationshipKey(edge),
-        source: edge.source,
-        target: edge.target,
-        sourceHandle: `out:${edge.output}`,
-        targetHandle: `in:${edge.property}`,
-        type: "smoothstep",
+      props.relationships.map((relationship) => ({
+        id: relationshipKey(relationship),
+        source: relationship.source,
+        target: relationship.target,
+        sourceHandle: `out:${relationship.output}`,
+        targetHandle: `in:${relationship.property}`,
+        type: "route" as const,
         label:
-          edge.kind === "association"
-            ? edge.rule
-            : `${edge.output} → ${edge.path.join(".")}`,
+          relationship.kind === "association"
+            ? relationship.rule
+            : `${relationship.output} → ${relationship.path.join(".")}`,
         style: {
-          stroke: edge.kind === "association" ? "#9d7d46" : "#3d8076",
+          stroke: relationship.kind === "association" ? "#9d7d46" : "#3d8076",
           strokeWidth:
-            props.selectedRelationship === relationshipKey(edge) ? 3.4 : 1.8,
-          strokeDasharray: edge.kind === "association" ? "5 5" : undefined,
+            props.selectedRelationship === relationshipKey(relationship)
+              ? 3.4
+              : 1.8,
+          strokeDasharray:
+            relationship.kind === "association" ? "5 5" : undefined,
         },
         labelStyle: {
-          fill: edge.kind === "association" ? "#806334" : "#25645a",
+          fill: relationship.kind === "association" ? "#806334" : "#25645a",
           fontSize: 10,
           fontWeight: 600,
         },
         labelBgStyle: { fill: "#fafaf6", fillOpacity: 0.95 },
         labelBgPadding: [7, 4],
         deletable: false,
-        selected: props.selectedRelationship === relationshipKey(edge),
+        data: {
+          relationship,
+          points:
+            props.routes.find(
+              (route) =>
+                relationshipKey(route) === relationshipKey(relationship),
+            )?.points ?? [],
+          onChange: (points: DiagramPoint[], record: boolean) =>
+            props.onRouteChange(relationship, points, record),
+        },
+        selected: props.selectedRelationship === relationshipKey(relationship),
       })),
-    [props.relationships, props.selectedRelationship],
+    [
+      props.relationships,
+      props.routes,
+      props.selectedRelationship,
+      props.onRouteChange,
+    ],
   );
 
   function onNodesChange(changes: NodeChange<ComposerNode>[]) {
@@ -114,6 +145,61 @@ function Diagram(props: Props) {
       if (change.dragging) dragging.current.add(change.id);
       else dragging.current.delete(change.id);
     }
+  }
+
+  function addRoutingPoint() {
+    const relationship = props.relationships.find(
+      (candidate) => relationshipKey(candidate) === props.selectedRelationship,
+    );
+    if (!relationship) return;
+    const route = props.routes.find(
+      (candidate) =>
+        relationshipKey(candidate) === relationshipKey(relationship),
+    );
+    const source = nodes.find((node) => node.id === relationship.source);
+    const target = nodes.find((node) => node.id === relationship.target);
+    if (!source || !target) return;
+    const completePath = [
+      {
+        x: source.position.x + (source.measured?.width ?? 180) / 2,
+        y: source.position.y + (source.measured?.height ?? 120) / 2,
+      },
+      ...(route?.points ?? []),
+      {
+        x: target.position.x + (target.measured?.width ?? 180) / 2,
+        y: target.position.y + (target.measured?.height ?? 120) / 2,
+      },
+    ];
+    let longestIndex = 0;
+    for (let index = 1; index < completePath.length - 1; index++) {
+      if (
+        Math.hypot(
+          completePath[index + 1].x - completePath[index].x,
+          completePath[index + 1].y - completePath[index].y,
+        ) >
+        Math.hypot(
+          completePath[longestIndex + 1].x - completePath[longestIndex].x,
+          completePath[longestIndex + 1].y - completePath[longestIndex].y,
+        )
+      )
+        longestIndex = index;
+    }
+    props.onRouteChange(
+      relationship,
+      [
+        ...completePath.slice(1, longestIndex + 1),
+        {
+          x:
+            (completePath[longestIndex].x + completePath[longestIndex + 1].x) /
+            2,
+          y:
+            (completePath[longestIndex].y + completePath[longestIndex + 1].y) /
+            2,
+        },
+        ...completePath.slice(longestIndex + 1, -1),
+      ],
+      true,
+    );
   }
 
   return (
@@ -141,6 +227,7 @@ function Diagram(props: Props) {
         nodes={nodes}
         edges={edges}
         nodeTypes={nodeTypes}
+        edgeTypes={edgeTypes}
         onNodesChange={onNodesChange}
         onNodeClick={(_, node) => {
           props.onSelectRelationship(null);
@@ -218,8 +305,14 @@ function Diagram(props: Props) {
               <i className="association-line" />
               Managed association
             </span>
+            <em>Double-click a line to add a routing point</em>
             {props.selectedRelationship && (
-              <strong>Selected · Delete to remove</strong>
+              <>
+                <button className="route-add-button" onClick={addRoutingPoint}>
+                  + Add routing point
+                </button>
+                <strong>Drag points · Double-click a point to remove it</strong>
+              </>
             )}
           </div>
         </Panel>

@@ -9,6 +9,7 @@ export interface ComponentDefinition {
 export interface Port {
   name: string;
   description?: string;
+  type?: string;
 }
 export interface ComponentType {
   display_name: string;
@@ -28,6 +29,13 @@ export interface StackDocument {
   components?: Components;
   disabled_associations?: string[];
   depends_on?: string[];
+  metadata?: {
+    stacksmith_composer?: {
+      positions?: Record<string, { x: number; y: number }>;
+      routes?: DiagramRoute[];
+    };
+    [key: string]: unknown;
+  };
 }
 export interface Snapshot {
   snapshot: string;
@@ -49,6 +57,13 @@ export interface Relationship {
   kind: "reference" | "association";
   rule: string | null;
 }
+export interface DiagramPoint {
+  x: number;
+  y: number;
+}
+export interface DiagramRoute extends Relationship {
+  points: DiagramPoint[];
+}
 export interface AssociationRule {
   name: string;
   description?: string;
@@ -67,6 +82,8 @@ export interface SourceDetails {
   label: string;
   detail: string | null;
   url: string | null;
+  configuration?: unknown;
+  content?: string | null;
 }
 export interface PlatformPort {
   name: string;
@@ -76,7 +93,12 @@ export interface Platform {
   description: string;
   source: string;
   scope: string;
-  backend: { kind: string; type: string | null; source: SourceDetails };
+  backend: {
+    kind: string;
+    type: string | null;
+    path?: string;
+    source: SourceDetails;
+  };
   tools: Record<string, { version?: string; source: SourceDetails }>;
   providers: {
     name: string;

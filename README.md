@@ -12,7 +12,7 @@ The Python project uses [`common-python-tasks`](https://github.com/ci-sourcerer/
 - Catalog and association resolution through the real `stacksmith info` JSON commands.
 - Component property and tag editing, explicit output connections, and stack-level association opt-outs.
 - Source-preserving YAML edits, JSON support, reviewed source download, and a unified diff.
-- Friendly platform configuration view with provider, module, policy, and generation provenance links rather than backend credentials or Python hook source.
+- Friendly platform configuration view with expandable static data and Python source previews, plus provider, module, and generation provenance links.
 - Optional GitHub App sign-in, topic-based repository discovery, and draft PR creation under the user's permissions.
 - Inspection-only AWS example backed by private, immutable GitHub module sources.
 
@@ -60,14 +60,14 @@ Add these settings to `.env`.
 COMPOSER_GITHUB_CLIENT_ID=your-app-client-id
 COMPOSER_GITHUB_CLIENT_SECRET=your-app-client-secret
 COMPOSER_SECRET_KEY=your-stable-random-secret-at-least-32-characters-long
-COMPOSER_CONFIG=/absolute/path/to/your/trusted/stacksmith-config.yaml
+COMPOSER_CONFIG=git+https://github.com/ci-sourcerer/stacksmith-platform-config//stacksmith-config.yaml@main
 ```
 
 Use a securely generated secret. Do not commit `.env`. Restart the API after changing settings. With GitHub configured, anonymous example mode is disabled and the UI asks users to sign in.
 
 Tag stack repositories with `stacksmith-stack`. Composer enumerates installations accessible to the authenticated user, filters their repositories by this topic, and discovers `stack.yaml`, `stack.yml`, `stack.json`, and `*.stack.yaml`, `*.stack.yml`, or `*.stack.json` files. Access is limited by both the user and the app. Read-only repositories can be opened, but PR creation requires push permission; fork-based contributions are not supported yet.
 
-This version uses one administrator-selected managed config for every repository in the deployment. Only connect repositories that use that contract. Repository-selected configs, runfile/environment discovery, and layered edits are follow-up work.
+This version uses one administrator-selected managed config for every repository in the deployment. In GitHub mode, `COMPOSER_CONFIG` can point directly to a private config file using Stacksmith's `git+https` reference syntax. The GitHub App must be installed on that config repository. Only connect stack repositories that use that contract. Repository-selected configs, runfile/environment discovery, and layered edits are follow-up work.
 
 GitHub tokens are encrypted in the local SQLite database and represented in the browser by an opaque HTTP-only cookie. Sessions last at most eight hours; sign in again when they expire. The same stable `COMPOSER_SECRET_KEY` is required across restarts. Changing that key requires clearing the session database. During Stacksmith inspection, the current token is exposed only to the child process through Stacksmith's ephemeral Git credential environment. Refresh-token rotation and webhook-driven invalidation are not implemented yet.
 
@@ -75,11 +75,11 @@ PR creation uses a new deterministic `composer/…` branch and changes only the 
 
 ## Supported authoring boundary
 
-Visual edits support ordinary YAML/JSON mappings and quoted component output expressions. YAML comments and unchanged scalar styles are preserved, and an unchanged draft returns the original text exactly. Changed JSON files are formatted with two-space indentation. Whole-file Jinja blocks, YAML aliases/anchors, and custom tags open read-only. Only components and stack-level `disabled_associations` are editable; unrelated root fields remain intact.
+Visual edits support ordinary YAML/JSON mappings and quoted component output expressions. YAML comments and unchanged scalar styles are preserved, and an unchanged draft returns the original text exactly. Changed JSON files are formatted with two-space indentation. Whole-file Jinja blocks, YAML aliases/anchors, and custom tags open read-only. Components, stack-level `disabled_associations`, and namespaced Composer diagram layout are editable; unrelated root fields remain intact. Diagram layout includes component positions and manually routed relationship vertices.
 
 Inspection checks public output references, managed association resolution, and component cycles. It is not full Stacksmith validation or an infrastructure plan. Unknown component types, unresolved inputs, or unsupported stacks may block inspection. The catalog currently lists explicit module mappings; convention-based component catalog discovery is not yet implemented.
 
-The platform view describes the authored config file, not the fully merged effective configuration. It identifies static data, inline Python, local or remote Python scripts, provider registry origins, and module repositories. Backend locations, credentials, hook bodies, and resolved inputs are deliberately excluded.
+The platform view describes the authored config file, not the fully merged effective configuration. Source labels expand to show static data, inline Python, available local Python script contents, and other authored source configuration; GitHub sources link to their files. Credential-like configuration fields are redacted. Remote script contents are not fetched by the browser.
 
 ## Runtime boundary
 

@@ -53,6 +53,7 @@ def load_document(source: str) -> dict[str, Any]:
     if not isinstance(document.get("components", {}), dict):
         raise ComposerError("Stack components must be a mapping.")
     _validate_components(document.get("components", {}))
+    _validate_metadata(document.get("metadata", {}))
     return document
 
 
@@ -89,6 +90,63 @@ def _validate_components(components: dict[str, Any]) -> None:
             raise ComposerError(f"Component {name} properties must be a mapping.")
 
 
+def _validate_metadata(metadata: Any) -> None:
+    if not isinstance(metadata, dict):
+        raise ComposerError("Stack metadata must be a mapping.")
+    composer = metadata.get("stacksmith_composer", {})
+    if not isinstance(composer, dict):
+        raise ComposerError("Stacksmith Composer metadata must be a mapping.")
+    positions = composer.get("positions", {})
+    if not isinstance(positions, dict):
+        raise ComposerError("Diagram positions must be a mapping.")
+    for name, position in positions.items():
+        if (
+            not isinstance(name, str)
+            or not isinstance(position, dict)
+            or set(position) != {"x", "y"}
+            or not all(
+                isinstance(position[axis], int | float)
+                and not isinstance(position[axis], bool)
+                and math.isfinite(position[axis])
+                for axis in ("x", "y")
+            )
+        ):
+            raise ComposerError("Each diagram position needs finite x and y numbers.")
+    routes = composer.get("routes", [])
+    if not isinstance(routes, list):
+        raise ComposerError("Diagram routes must be a list.")
+    for route in routes:
+        if (
+            not isinstance(route, dict)
+            or not all(
+                isinstance(route.get(key), str)
+                for key in ("source", "target", "output", "property", "kind")
+            )
+            or route.get("kind") not in {"reference", "association"}
+            or not isinstance(route.get("path"), list)
+            or not all(
+                isinstance(part, str | int) and not isinstance(part, bool)
+                for part in route["path"]
+            )
+            or route.get("rule") is not None
+            and not isinstance(route.get("rule"), str)
+            or not isinstance(route.get("points"), list)
+        ):
+            raise ComposerError("Each diagram route needs a list of points.")
+        for point in route["points"]:
+            if (
+                not isinstance(point, dict)
+                or set(point) != {"x", "y"}
+                or not all(
+                    isinstance(point[axis], int | float)
+                    and not isinstance(point[axis], bool)
+                    and math.isfinite(point[axis])
+                    for axis in ("x", "y")
+                )
+            ):
+                raise ComposerError("Each route point needs finite x and y numbers.")
+
+
 def _update_mapping(original: dict[str, Any], desired: dict[str, Any]) -> None:
     for key in list(original):
         if key not in desired:
@@ -101,7 +159,12 @@ def _update_mapping(original: dict[str, Any], desired: dict[str, Any]) -> None:
 
 
 def compose_source(
-    original: str, components: dict[str, Any], disabled: list[str], path: str
+    original: str,
+    components: dict[str, Any],
+    disabled: list[str],
+    path: str,
+    positions: dict[str, dict[str, float]] | None = None,
+    routes: list[dict[str, Any]] | None = None,
 ) -> str:
     """Apply component edits while preserving unrelated authored stack content.
 
@@ -110,6 +173,8 @@ def compose_source(
         components: Desired component definitions, including preserved unknown fields.
         disabled: Desired stack-level association opt-outs.
         path: Source filename, used to retain JSON formatting semantics.
+        positions: Optional Composer diagram positions keyed by component name.
+        routes: Optional Composer relationship routes with intermediate points.
 
     Returns:
         Authored source; unchanged documents return the exact original bytes as text.
@@ -119,9 +184,17 @@ def compose_source(
     """
     _validate_components(components)
     document = load_document(original)
+    current_positions = (
+        document.get("metadata", {}).get("stacksmith_composer", {}).get("positions", {})
+    )
+    current_routes = (
+        document.get("metadata", {}).get("stacksmith_composer", {}).get("routes", [])
+    )
     if (
         document.get("components", {}) == components
         and document.get("disabled_associations", []) == disabled
+        and (positions is None or current_positions == positions)
+        and (routes is None or current_routes == routes)
     ):
         return original
     _update_mapping(document.setdefault("components", {}), components)
@@ -130,12 +203,30 @@ def compose_source(
             document["disabled_associations"] = disabled
         else:
             document.pop("disabled_associations", None)
+    if positions is not None or routes is not None:
+        metadata = document.setdefault("metadata", {})
+        composer_metadata = metadata.setdefault("stacksmith_composer", {})
+        if positions is not None:
+            if positions:
+                composer_metadata["positions"] = positions
+            else:
+                composer_metadata.pop("positions", None)
+        if routes is not None:
+            if routes:
+                composer_metadata["routes"] = routes
+            else:
+                composer_metadata.pop("routes", None)
+        if not composer_metadata:
+            metadata.pop("stacksmith_composer", None)
+        if not metadata:
+            document.pop("metadata", None)
     if path.endswith(".json"):
         return json.dumps(document, indent=2, ensure_ascii=False) + "\n"
     output = StringIO()
     parser = YAML(typ="rt")
     parser.preserve_quotes = True
     parser.width = 4096
+    parser.indent(mapping=2, sequence=4, offset=2)
     parser.dump(document, output)
     return output.getvalue()
 

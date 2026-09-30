@@ -6,6 +6,137 @@ export type JsonValue =
 export type JsonValueType =
   "string" | "number" | "boolean" | "array" | "object" | "null";
 
+export interface ValueConstraint {
+  type: JsonValueType | "any";
+  items?: ValueConstraint;
+  tupleItems?: ValueConstraint[];
+  properties?: Record<string, ValueConstraint>;
+  additionalProperties?: ValueConstraint;
+}
+
+export function parseTerraformType(source?: string): ValueConstraint {
+  if (!source) return { type: "any" };
+  const normalized = source.trim().replace(/^\$\{([\s\S]*)\}$/, "$1");
+  let position = 0;
+
+  function whitespace() {
+    while (/\s/.test(normalized[position] ?? "")) position++;
+  }
+
+  function identifier(): string {
+    whitespace();
+    const match = /^[\w-]+/.exec(normalized.slice(position));
+    if (!match) throw new Error("Invalid Terraform type");
+    position += match[0].length;
+    return match[0];
+  }
+
+  function expect(character: string) {
+    whitespace();
+    if (normalized[position] !== character)
+      throw new Error("Invalid Terraform type");
+    position++;
+  }
+
+  function parse(): ValueConstraint {
+    const name = identifier();
+    const simpleTypes: Record<string, JsonValueType | "any"> = {
+      string: "string",
+      number: "number",
+      bool: "boolean",
+      any: "any",
+      dynamic: "any",
+    };
+    if (simpleTypes[name]) return { type: simpleTypes[name] };
+    expect("(");
+    if (name === "object") {
+      expect("{");
+      const properties: Record<string, ValueConstraint> = {};
+      whitespace();
+      while (normalized[position] !== "}") {
+        const key = identifier();
+        expect("=");
+        properties[key] = parse();
+        whitespace();
+        if (normalized[position] === ",") position++;
+        whitespace();
+      }
+      expect("}");
+      expect(")");
+      return { type: "object", properties };
+    }
+    if (name === "tuple") {
+      expect("[");
+      const tupleItems: ValueConstraint[] = [];
+      whitespace();
+      while (normalized[position] !== "]") {
+        tupleItems.push(parse());
+        whitespace();
+        if (normalized[position] === ",") position++;
+        whitespace();
+      }
+      expect("]");
+      expect(")");
+      return { type: "array", tupleItems };
+    }
+    const item = parse();
+    expect(")");
+    if (name === "list" || name === "set")
+      return { type: "array", items: item };
+    if (name === "map") return { type: "object", additionalProperties: item };
+    if (name === "optional") return item;
+    throw new Error("Unsupported Terraform type");
+  }
+
+  try {
+    const result = parse();
+    whitespace();
+    return position === normalized.length ? result : { type: "any" };
+  } catch {
+    return { type: "any" };
+  }
+}
+
+export function defaultValueForConstraint(
+  constraint: ValueConstraint,
+): JsonValue {
+  if (constraint.type === "array")
+    return constraint.tupleItems?.map(defaultValueForConstraint) ?? [];
+  if (constraint.type === "object" && constraint.properties)
+    return Object.fromEntries(
+      Object.entries(constraint.properties).map(([key, child]) => [
+        key,
+        defaultValueForConstraint(child),
+      ]),
+    );
+  if (constraint.type === "any" || constraint.type === "null") return "";
+  return defaultJsonValue(constraint.type);
+}
+
+export function matchesValueConstraint(
+  value: JsonValue,
+  constraint: ValueConstraint,
+): boolean {
+  if (typeof value === "string" && value.includes("{{ components["))
+    return true;
+  if (constraint.type === "any") return true;
+  if (jsonValueType(value) !== constraint.type) return false;
+  if (Array.isArray(value)) {
+    return value.every((item, index) => {
+      const child = constraint.tupleItems?.[index] ?? constraint.items;
+      return !child || matchesValueConstraint(item, child);
+    });
+  }
+  if (value !== null && typeof value === "object") {
+    return Object.entries(value).every(([key, child]) => {
+      const childConstraint =
+        constraint.properties?.[key] ?? constraint.additionalProperties;
+      return !childConstraint || matchesValueConstraint(child, childConstraint);
+    });
+  }
+  return true;
+}
+
 export function jsonValueType(value: JsonValue): JsonValueType {
   if (value === null) return "null";
   if (Array.isArray(value)) return "array";

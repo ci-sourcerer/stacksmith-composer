@@ -12,10 +12,14 @@ import {
 } from "lucide-react";
 import {
   defaultJsonValue,
+  defaultValueForConstraint,
   isJsonValue,
   jsonValueType,
+  matchesValueConstraint,
+  parseTerraformType,
   type JsonValue,
   type JsonValueType,
+  type ValueConstraint,
 } from "../model";
 import type { Port, Relationship } from "../types";
 
@@ -32,23 +36,44 @@ interface ValueEditorProps {
   value: JsonValue;
   onChange: (value: JsonValue) => void;
   depth?: number;
+  constraint?: ValueConstraint;
 }
 
-function ValueEditor({ value, onChange, depth = 0 }: ValueEditorProps) {
+function ValueEditor({
+  value,
+  onChange,
+  depth = 0,
+  constraint = { type: "any" },
+}: ValueEditorProps) {
   const type = jsonValueType(value);
+  const typeIsInvalid = constraint.type !== "any" && type !== constraint.type;
+  const valueIsInvalid = !matchesValueConstraint(value, constraint);
+  const allowedTypes = VALUE_TYPES.filter(
+    (option) =>
+      constraint.type === "any" ||
+      option.value === constraint.type ||
+      option.value === type,
+  );
   return (
     <div className={`value-editor depth-${Math.min(depth, 3)}`}>
       <select
         className="value-type"
         aria-label="Value type"
         value={type}
-        onChange={(event) =>
-          onChange(defaultJsonValue(event.target.value as JsonValueType))
-        }
+        onChange={(event) => {
+          const selected = event.target.value as JsonValueType;
+          onChange(
+            constraint.type === selected
+              ? defaultValueForConstraint(constraint)
+              : defaultJsonValue(selected),
+          );
+        }}
       >
-        {VALUE_TYPES.map((option) => (
+        {allowedTypes.map((option) => (
           <option value={option.value} key={option.value}>
-            {option.label}
+            {typeIsInvalid && option.value === type
+              ? `${option.label} (invalid)`
+              : option.label}
           </option>
         ))}
       </select>
@@ -83,11 +108,17 @@ function ValueEditor({ value, onChange, depth = 0 }: ValueEditorProps) {
         </label>
       )}
       {type === "null" && <div className="null-value">No value</div>}
+      {valueIsInvalid && (
+        <p className="error-text">
+          This value does not match the module input type.
+        </p>
+      )}
       {type === "array" && (
         <ArrayEditor
           value={value as JsonValue[]}
           onChange={onChange}
           depth={depth}
+          constraint={constraint}
         />
       )}
       {type === "object" && (
@@ -95,6 +126,7 @@ function ValueEditor({ value, onChange, depth = 0 }: ValueEditorProps) {
           value={value as Record<string, JsonValue>}
           onChange={onChange}
           depth={depth}
+          constraint={constraint}
         />
       )}
     </div>
@@ -105,10 +137,12 @@ function ArrayEditor({
   value,
   onChange,
   depth,
+  constraint,
 }: {
   value: JsonValue[];
   onChange: (value: JsonValue) => void;
   depth: number;
+  constraint: ValueConstraint;
 }) {
   return (
     <div className="collection-editor">
@@ -125,6 +159,7 @@ function ArrayEditor({
               )
             }
             depth={depth + 1}
+            constraint={constraint.tupleItems?.[index] ?? constraint.items}
           />
           <button
             className="icon-button subtle-danger"
@@ -137,7 +172,18 @@ function ArrayEditor({
           </button>
         </div>
       ))}
-      <button className="add-value" onClick={() => onChange([...value, ""])}>
+      <button
+        className="add-value"
+        onClick={() =>
+          onChange([
+            ...value,
+            defaultValueForConstraint(
+              constraint.tupleItems?.[value.length] ??
+                constraint.items ?? { type: "any" },
+            ),
+          ])
+        }
+      >
         <ListPlus size={14} /> Add list item
       </button>
     </div>
@@ -148,10 +194,12 @@ function ObjectEditor({
   value,
   onChange,
   depth,
+  constraint,
 }: {
   value: Record<string, JsonValue>;
   onChange: (value: JsonValue) => void;
   depth: number;
+  constraint: ValueConstraint;
 }) {
   const [newKey, setNewKey] = useState("");
   return (
@@ -177,6 +225,9 @@ function ObjectEditor({
             value={item}
             onChange={(next) => onChange({ ...value, [key]: next })}
             depth={depth + 1}
+            constraint={
+              constraint.properties?.[key] ?? constraint.additionalProperties
+            }
           />
           <button
             className="icon-button subtle-danger"
@@ -205,7 +256,13 @@ function ObjectEditor({
               newKey &&
               !Object.hasOwn(value, newKey)
             ) {
-              onChange({ ...value, [newKey]: "" });
+              onChange({
+                ...value,
+                [newKey]: defaultValueForConstraint(
+                  constraint.properties?.[newKey] ??
+                    constraint.additionalProperties ?? { type: "any" },
+                ),
+              });
               setNewKey("");
             }
           }}
@@ -214,7 +271,13 @@ function ObjectEditor({
           className="add-value"
           disabled={!newKey || Object.hasOwn(value, newKey)}
           onClick={() => {
-            onChange({ ...value, [newKey]: "" });
+            onChange({
+              ...value,
+              [newKey]: defaultValueForConstraint(
+                constraint.properties?.[newKey] ??
+                  constraint.additionalProperties ?? { type: "any" },
+              ),
+            });
             setNewKey("");
           }}
         >
@@ -294,6 +357,7 @@ export function PropertyEditor({
           const authored = Object.hasOwn(properties, name);
           const value = properties[name];
           const input = inputMap.get(name);
+          const constraint = parseTerraformType(input?.type);
           const explicit = relationships.find(
             (edge) =>
               edge.kind === "reference" &&
@@ -361,6 +425,7 @@ export function PropertyEditor({
                 <ValueEditor
                   value={value}
                   onChange={(next) => update({ ...properties, [name]: next })}
+                  constraint={constraint}
                 />
               ) : managed ? (
                 <div className="managed-value">
@@ -369,7 +434,12 @@ export function PropertyEditor({
               ) : (
                 <button
                   className="add-property"
-                  onClick={() => update({ ...properties, [name]: "" })}
+                  onClick={() =>
+                    update({
+                      ...properties,
+                      [name]: defaultValueForConstraint(constraint),
+                    })
+                  }
                 >
                   <CirclePlus size={14} /> Add a value
                 </button>
@@ -417,6 +487,17 @@ export function PropertyEditor({
                   throw new Error(
                     "Properties must be a JSON object containing finite JSON values.",
                   );
+                for (const [name, value] of Object.entries(parsed)) {
+                  const input = inputMap.get(name);
+                  if (input?.type && isJsonValue(value)) {
+                    const constraint = parseTerraformType(input.type);
+                    if (!matchesValueConstraint(value, constraint)) {
+                      throw new Error(
+                        `${name} must match the module input type ${input.type}.`,
+                      );
+                    }
+                  }
+                }
                 update(parsed as Record<string, JsonValue>);
               } catch (caught) {
                 setError(

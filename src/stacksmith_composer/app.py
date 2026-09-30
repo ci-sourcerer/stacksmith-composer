@@ -1,6 +1,8 @@
 import hashlib
+import re
 import secrets
-from typing import Annotated, Any
+from pathlib import Path
+from typing import Annotated, Any, Literal
 from urllib.parse import urlencode, urlparse
 
 import httpx
@@ -22,12 +24,34 @@ from .settings import Settings
 router = APIRouter(prefix="/api")
 
 
+class DiagramPosition(BaseModel):
+    """Persisted coordinates for one component on the Composer diagram."""
+
+    x: float
+    y: float
+
+
+class DiagramRoute(BaseModel):
+    """Persisted routing points for one Composer relationship."""
+
+    source: str
+    target: str
+    output: str
+    property: str
+    path: list[str | int]
+    kind: Literal["reference", "association"]
+    rule: str | None = None
+    points: list[DiagramPosition]
+
+
 class Draft(BaseModel):
     """A proposed edit relative to a signed source snapshot."""
 
     snapshot: str = Field(max_length=300_000)
     components: dict[str, dict[str, Any]] = Field(max_length=200)
     disabled_associations: list[str] = Field(default_factory=list, max_length=200)
+    positions: dict[str, DiagramPosition] = Field(default_factory=dict, max_length=200)
+    routes: list[DiagramRoute] = Field(default_factory=list, max_length=500)
 
 
 def _identity(request: Request) -> tuple[str, str] | None:
@@ -65,7 +89,29 @@ def _signer(request: Request) -> URLSafeTimedSerializer:
 
 
 def _config_revision(request: Request) -> str:
-    return hashlib.sha256(request.app.state.settings.config.read_bytes()).hexdigest()
+    return _managed_config(request)[1]
+
+
+def _managed_config(request: Request) -> tuple[str, str]:
+    config = request.app.state.settings.config
+    if isinstance(config, Path):
+        content = config.read_text(encoding="utf-8")
+        return content, hashlib.sha256(content.encode()).hexdigest()
+
+    match = re.fullmatch(
+        r"git\+https://github\.com/([^/]+)/([^/]+)//(.+?)@([^@]+)", config
+    )
+    if not match:
+        raise ComposerError(
+            "COMPOSER_CONFIG must be a local path or GitHub git URL.", 503
+        )
+    token = _github_token(request)
+    if not token:
+        raise ComposerError("Sign in to read the private managed config.", 401)
+    owner, repo, path, ref = match.groups()
+    return GitHubClient(token).repository_file(
+        owner, repo.removesuffix(".git"), path, ref
+    )
 
 
 def _open_snapshot(request: Request, source: str, **metadata) -> dict[str, Any]:
@@ -112,6 +158,12 @@ def _review(request: Request, draft: Draft) -> tuple[dict[str, Any], dict[str, A
         draft.components,
         draft.disabled_associations,
         snapshot["path"],
+        {
+            name: position.model_dump()
+            for name, position in draft.positions.items()
+            if name in draft.components
+        },
+        [route.model_dump() for route in draft.routes],
     )
     # Enforce document limits on the edited source too.
     github_token = _github_token(request)
@@ -156,7 +208,9 @@ def catalog(request: Request) -> dict[str, Any]:
 @router.get("/platform", dependencies=[Depends(_identity)])
 def platform(request: Request) -> dict[str, Any]:
     """Return an allowlisted, descriptive view of the trusted platform config."""
-    return platform_summary(request.app.state.settings.config)
+    config, _ = _managed_config(request)
+    source = request.app.state.settings.config
+    return platform_summary(source if isinstance(source, Path) else config)
 
 
 @router.get("/sample", dependencies=[Depends(_identity)])

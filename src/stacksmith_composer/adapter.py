@@ -59,7 +59,14 @@ class StacksmithAdapter:
                 args = [*args, "--stack", str(Path(directory, "stack.yaml"))]
             try:
                 result = subprocess.run(
-                    [self.command, *args, "--config", str(self.settings.config)],
+                    [
+                        self.command,
+                        *args,
+                        "--config",
+                        str(self.settings.config),
+                        "--build-dir",
+                        str(self.settings.stacksmith_build_dir),
+                    ],
                     shell=False,
                     cwd=directory,
                     env=_subprocess_environment(github_token),
