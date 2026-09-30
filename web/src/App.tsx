@@ -14,9 +14,11 @@ import {
   Github,
   Layers3,
   LoaderCircle,
+  Moon,
   Plus,
   Search,
   Settings2,
+  Sun,
   X,
 } from "lucide-react";
 import type { Connection } from "@xyflow/react";
@@ -38,6 +40,7 @@ import { Canvas } from "./components/Canvas";
 import { Inspector } from "./components/Inspector";
 import { PlatformView } from "./components/PlatformView";
 import { TypeIcon } from "./components/ComponentNode";
+import { useDarkMode } from "./useDarkMode";
 import type {
   Catalog,
   Platform,
@@ -68,6 +71,7 @@ function errorMessage(error: unknown): string {
 }
 
 export default function App() {
+  const [dark, toggleDark] = useDarkMode();
   const [session, setSession] = useState<Session>();
   const [catalog, setCatalog] = useState<Catalog>({});
   const [platform, setPlatform] = useState<Platform>();
@@ -550,6 +554,14 @@ export default function App() {
             </>
           ) : null}
           <span className="version-badge">EARLY PREVIEW</span>
+          <button
+            className="theme-toggle"
+            onClick={toggleDark}
+            aria-label={dark ? "Switch to light mode" : "Switch to dark mode"}
+            title={dark ? "Switch to light mode" : "Switch to dark mode"}
+          >
+            {dark ? <Sun size={16} /> : <Moon size={16} />}
+          </button>
         </div>
       </header>
       <nav className="main-nav" aria-label="Workspace">

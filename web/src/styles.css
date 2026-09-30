@@ -292,6 +292,19 @@ input[type="checkbox"] {
 .icon-button:hover {
   background: #e9eee4;
 }
+.theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  color: var(--muted);
+  flex-shrink: 0;
+}
+.theme-toggle:hover {
+  background: #e9eee4;
+}
 .demo-notice {
   display: flex;
   align-items: center;
@@ -1850,4 +1863,412 @@ input[type="checkbox"] {
     animation: none !important;
     transition: none !important;
   }
+}
+.dark {
+  color: #cdd9c5;
+  background: #141b17;
+  --green: #62a87c;
+  --line: #2b3830;
+  --muted: #7d9177;
+  --paper: #1c2520;
+  --accent: #253428;
+}
+.dark input,
+.dark textarea,
+.dark select {
+  background: #1c2520;
+  color: #cdd9c5;
+}
+.dark .topbar,
+.dark .main-nav {
+  background: #1c2520;
+}
+.dark .stack-toolbar {
+  background: #171f1c;
+}
+.dark .badge,
+.dark .version-badge {
+  background: #243028;
+  color: #7b9178;
+}
+.dark .demo-badge {
+  background: #2e2a1e;
+  color: #b09a68;
+}
+.dark .brand strong span {
+  color: #5d7a61;
+}
+.dark .count {
+  background: #253028;
+  color: #7b9177;
+}
+.dark .canvas {
+  background: #111915;
+}
+.dark .search-field {
+  background: #1a2420;
+  color: #6a8070;
+}
+.dark .palette-item:hover {
+  background: #212c26;
+  border-color: #2d3c35;
+}
+.dark .palette-item {
+  border-bottom-color: #252f2a;
+}
+.dark .palette-item small {
+  color: #658070;
+}
+.dark .palette-footer {
+  color: #6a8070;
+}
+.dark .type-icon {
+  background: #253028;
+  color: #6d9b78;
+}
+.dark .tone-data {
+  background: #2c2519;
+  color: #b5944e;
+}
+.dark .tone-compute {
+  background: #1e2838;
+  color: #7898bc;
+}
+.dark .tone-networking {
+  background: #1f2e1f;
+  color: #82a86b;
+}
+.dark .tone-identity {
+  background: #2a2131;
+  color: #9a80b0;
+}
+.dark .button {
+  background: #1c2520;
+  border-color: #2e3c35;
+  color: #cdd9c5;
+}
+.dark .button:hover {
+  background: #222e28;
+  border-color: #3a4f45;
+}
+.dark .button.primary {
+  background: var(--green);
+  border-color: var(--green);
+  color: #fff;
+}
+.dark .button.primary:hover {
+  background: #4d8c65;
+}
+.dark .button.danger {
+  color: #c07570;
+  border-color: #4a302e;
+}
+.dark .icon-button:hover {
+  background: #253028;
+}
+.dark .demo-notice {
+  background: #1e2820;
+  color: #88987e;
+}
+.dark .status-dot {
+  background: #5d9068;
+}
+.dark .status-dot.pending {
+  background: #a08548;
+}
+.dark .component-node {
+  background: #1c2520;
+  border-color: #2d3c35;
+}
+.dark .component-node.is-selected {
+  border-color: #4e8065;
+  box-shadow:
+    0 0 0 2px #4e80654a,
+    0 4px 12px #0a100d0f;
+}
+.dark .node-heading {
+  border-bottom-color: #253028;
+}
+.dark .node-heading small {
+  color: #6d8070;
+}
+.dark .node-footer {
+  background: #181f1c;
+  border-top-color: #253028;
+  color: #6a7d65;
+}
+.dark .react-flow__handle {
+  background: #619070;
+  border-color: #1a2420;
+}
+.dark .react-flow__handle-right {
+  background: #3a7a70;
+}
+.dark .react-flow__controls {
+  border-color: #2b3830;
+  box-shadow: 0 2px 6px #00000040;
+}
+.dark .react-flow__controls-button {
+  background: #1c2520;
+  color: #629070;
+  border-bottom-color: #253028;
+}
+.dark .react-flow__controls-button:hover {
+  background: #222e28;
+}
+.dark .react-flow__minimap {
+  background: #181f1c;
+  border-color: #2b3830;
+}
+.dark .react-flow__attribution {
+  background: #141b17cc !important;
+  color: #6a7d65 !important;
+}
+.dark .canvas-label {
+  background: #181f1ce8;
+  border-color: #253028;
+  color: #6d8270;
+}
+.dark .canvas-label > span:last-child {
+  border-left-color: #2b3830;
+  color: #5d7060;
+}
+.dark .legend {
+  background: #181f1cee;
+  border-color: #2b3830;
+  color: #7a8a70;
+}
+.dark .legend i {
+  border-top-color: #3d7a6e;
+}
+.dark .legend .association-line {
+  border-top-color: #8a7040;
+}
+.dark .legend strong {
+  color: #4d8070;
+  border-left-color: #2b3830;
+}
+.dark .canvas-history {
+  background: #181f1cee;
+  border-color: #2b3830;
+  box-shadow: 0 3px 10px #00000030;
+}
+.dark .validation-bar {
+  background: #181f1c;
+  color: #6d7d65;
+}
+.dark .validation-bar.has-error {
+  background: #2a1c15;
+  color: #c07860;
+}
+.dark .error-banner {
+  background: #2a1c15;
+  color: #c07860;
+  border-bottom-color: #4a2a20;
+}
+.dark .error-text {
+  color: #c07860;
+}
+.dark .property-field {
+  background: #181f1c;
+  border-color: #2b3830;
+}
+.dark .property-field.is-authored {
+  background: #1c2520;
+  border-color: #3a4f45;
+}
+.dark .property-label code {
+  color: #7dab8a;
+}
+.dark .property-label p {
+  color: #7a8a72;
+}
+.dark .boolean-control,
+.dark .null-value {
+  background: #1a2420;
+  border-color: #2b3830;
+  color: #7a8a72;
+}
+.dark .collection-row,
+.dark .object-row {
+  background: #1a2420;
+  border-left-color: #3a5045;
+}
+.dark .collection-index {
+  background: #253028;
+  color: #7d9177;
+}
+.dark .connection-value {
+  background: #1e3028;
+  color: #5d9070;
+}
+.dark .managed-value {
+  background: #2e2518;
+  color: #a08848;
+}
+.dark .advanced-toggle {
+  color: #7d9175;
+}
+.dark .source-configuration pre,
+.dark .advanced-json textarea,
+.dark textarea {
+  background: #1a2420;
+  border-color: #2b3830;
+  color: #cdd9c5;
+}
+.dark .source-configuration > summary,
+.dark .source-configuration > a {
+  color: #62a87c;
+}
+.dark .source-configuration > code {
+  color: #7d9177;
+}
+.dark .association-note {
+  background: #2a2416;
+  border-color: #4a3e20;
+  color: #b09a68;
+}
+.dark .association-note strong,
+.dark .association-note p {
+  color: inherit;
+}
+.dark .state-warning {
+  background: #2e2516;
+  border-color: #4a3820;
+  color: #b09848;
+}
+.dark .state-warning strong {
+  color: #c0a848;
+}
+.dark .diff-heading {
+  background: #1e2a20;
+  border-color: var(--line);
+}
+.dark .diff {
+  background: #1c2520;
+  border-color: var(--line);
+}
+.dark .diff-add {
+  background: #1a2e18;
+  color: #7ab875;
+}
+.dark .diff-remove {
+  background: #2e1a14;
+  color: #c08070;
+}
+.dark .diff-meta {
+  background: #1e2430;
+  color: #7890b0;
+}
+.dark .notice {
+  background: #1e2a20;
+  border-color: #2b3830;
+  color: #7d9070;
+}
+.dark .provider-instances > div {
+  background: #1a2420;
+}
+.dark .modal-backdrop {
+  background: #0c120e88;
+}
+.dark .repository-modal {
+  background: #1c2520;
+  border-color: #2b3830;
+  box-shadow: 0 20px 100px #00000050;
+}
+.dark .repository-search {
+  background: #1a2420;
+  border-color: #2b3830;
+}
+.dark .repository-list {
+  background: #1a2420;
+  border-color: #2b3830;
+}
+.dark .repository-option {
+  border-bottom-color: #2b3830;
+}
+.dark .repository-option:hover,
+.dark .repository-option.is-selected {
+  background: #1f2c25;
+}
+.dark .repository-access {
+  background: #252f25;
+  color: #8a9888;
+}
+.dark .repository-access.is-writable {
+  background: #1e3028;
+  color: var(--green);
+}
+.dark .stack-list > button:hover {
+  background: #1e2a20;
+}
+.dark .stack-list > button {
+  border-bottom-color: var(--line);
+}
+.dark .unsaved {
+  color: #b09a68;
+}
+.dark .branch-badge {
+  border-color: var(--line);
+  color: #7d9070;
+}
+.dark .empty-state {
+  color: #7d9070;
+}
+.dark .empty-state h2 {
+  color: #a0c8a0;
+}
+.dark .eyebrow {
+  color: #7d9070;
+}
+.dark .welcome p {
+  color: #7d9070;
+}
+.dark .welcome small {
+  color: #7d9070;
+}
+.dark .intro-copy {
+  color: #7d9070;
+}
+.dark .catalog-card > code {
+  color: #7d9070;
+}
+.dark .catalog-ports h3 {
+  color: #7d9070;
+}
+.dark .catalog-ports span {
+  color: #8a9880;
+}
+.dark .catalog-source {
+  color: #7d9070;
+}
+.dark .catalog-source-link,
+.dark .source-configuration > a:hover,
+.dark .catalog-source-link:hover {
+  color: var(--green);
+}
+.dark .tag-list span {
+  background: #253028;
+  color: #7d9070;
+}
+.dark .interface-summary {
+  border-top-color: #253028;
+}
+.dark .interface-summary strong {
+  color: #7d9070;
+}
+.dark .interface-summary span {
+  color: #8a9880;
+}
+.dark .platform-component-card > p {
+  color: #7d9070;
+}
+.dark .section-heading > svg {
+  color: #7d9070;
+}
+.dark .theme-toggle {
+  color: var(--muted);
+}
+.dark .theme-toggle:hover {
+  background: #253028;
 }
