@@ -102,7 +102,7 @@ npm --prefix web test
 npm --prefix web run build
 ```
 
-Inspect the imported tasks with `uv run poe --help`. The task list intentionally excludes the `common-python-tasks` FastAPI development-stack tasks.
+Inspect the imported tasks with `uv run poe --help`. The task list intentionally excludes the `common-python-tasks` FastAPI development-stack tasks. See the [Zensical guide to common-python-tasks](docs/common-python-tasks.md) for the shared workflow used in this repository.
 
 The real Stacksmith integration test is opt-in and needs Git read access to the private example modules.
 

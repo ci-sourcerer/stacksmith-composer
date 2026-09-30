@@ -101,3 +101,42 @@ def test_catalog_removes_configured_module_source_prefix(tmp_path, monkeypatch):
                 "module_version": "v1.2.3",
             },
         }
+
+
+@pytest.mark.parametrize(
+    ("module_source", "module_version", "expected"),
+    [
+        (
+            "https://github.com/example/modules.git//service",
+            None,
+            "https://github.com/example/modules/tree/HEAD/service",
+        ),
+        (
+            "https://github.com/example/modules.git//service",
+            "v1.2.3",
+            "https://github.com/example/modules/tree/v1.2.3/service",
+        ),
+        (
+            "https://github.com/example/modules.git//service?ref=main",
+            "v1.2.3",
+            "https://github.com/example/modules/tree/main/service",
+        ),
+    ],
+)
+def test_catalog_module_source_url_includes_module_path_without_query_ref(
+    tmp_path, module_source, module_version, expected
+):
+    adapter = StacksmithAdapter(
+        Settings(_env_file=None, config=tmp_path / "trusted.yaml")
+    )
+    with patch.object(
+        adapter,
+        "_json",
+        return_value={
+            "remote": {
+                "module_source": module_source,
+                "module_version": module_version,
+            }
+        },
+    ):
+        assert adapter.catalog()["remote"]["module_source_url"] == expected
