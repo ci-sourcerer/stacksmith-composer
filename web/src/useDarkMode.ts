@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 const STORAGE_KEY = "stacksmith-theme";
 
 function getInitialDark(): boolean {
+  if (typeof window === "undefined") return false;
   const stored = localStorage.getItem(STORAGE_KEY);
   if (stored !== null) return stored === "dark";
   return window.matchMedia("(prefers-color-scheme: dark)").matches;
