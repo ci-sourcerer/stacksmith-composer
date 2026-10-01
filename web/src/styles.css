@@ -590,6 +590,16 @@ input[type="checkbox"] {
   background: #f4f6efcc !important;
   color: #87977b !important;
 }
+.react-flow__edge .react-flow__edge-textwrapper {
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  pointer-events: none;
+}
+.react-flow__edge:hover .react-flow__edge-textwrapper,
+.react-flow__edge.selected .react-flow__edge-textwrapper {
+  opacity: 1;
+  pointer-events: auto;
+}
 .route-point {
   fill: var(--paper);
   stroke: var(--green);
