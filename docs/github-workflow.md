@@ -16,6 +16,6 @@ Pull requests are ready for review by default. Set `COMPOSER_DRAFT_PULL_REQUESTS
 
 Composer checks that the base branch has not advanced before writing. If it has changed, reopen the stack and review the changes against the new revision. GitHub may still advance the branch after this check; normal pull request conflict handling then applies.
 
-## What happens after the pull request
+## CI and deployment
 
 The pull request contains the reviewed source change. The repository's CI remains responsible for full Stacksmith validation, planning, policy checks, and deployment. Composer does not run or approve those steps.

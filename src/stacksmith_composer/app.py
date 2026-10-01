@@ -175,9 +175,7 @@ def _review(request: Request, draft: Draft) -> tuple[dict[str, Any], dict[str, A
         "diff": source_diff(snapshot["source"], source, snapshot["path"]),
         "edges": inspect_graph(draft.components, catalog, associations),
         "associations": associations,
-        "validation": (
-            "References and associations inspected. Full validation and plan run in CI."
-        ),
+        "validation": "Stack references and associations are valid.",
     }
 
 

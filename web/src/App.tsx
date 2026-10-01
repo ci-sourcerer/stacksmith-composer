@@ -1035,7 +1035,6 @@ export default function App() {
             <main className="review-view">
               <section className="review-main">
                 <div className="eyebrow">REVIEW BEFORE YOU PROPOSE</div>
-                <h2>A small, readable change.</h2>
                 <p className="muted">
                   Authored stack changes and diagram layout are included.
                   Resolved association values stay out of the file.

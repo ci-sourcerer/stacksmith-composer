@@ -270,10 +270,7 @@ export function PlatformView({ platform }: { platform: Platform }) {
           ))
         ) : (
           <PlatformCard title="Validation policies">
-            <p>
-              No named validation policies declared. Full validation and
-              planning still run in CI.
-            </p>
+            <p>No named validation policies declared.</p>
           </PlatformCard>
         )}
       </PlatformSection>
