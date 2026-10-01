@@ -12,7 +12,6 @@ import {
   FolderGit2,
   GitBranch,
   Github,
-  Layers3,
   LoaderCircle,
   Plus,
   Search,
@@ -517,9 +516,40 @@ export default function App() {
     <div className="application">
       <header className="topbar">
         <a className="brand" href="/" aria-label="Stacksmith Composer home">
-          <span className="brand-mark">
-            <Layers3 size={23} />
-          </span>
+          <svg
+            className="brand-mark"
+            viewBox="0 0 64 64"
+            role="img"
+            aria-label="Stacksmith Composer logo"
+          >
+            <defs>
+              <linearGradient
+                id="composer-logo-gradient"
+                x1="0%"
+                x2="100%"
+                y1="0%"
+                y2="100%"
+              >
+                <stop offset="0%" stopColor="#edf8d0" />
+                <stop offset="100%" stopColor="#d9f1b0" />
+              </linearGradient>
+            </defs>
+            <rect x="4" y="4" width="56" height="56" rx="16" fill="#315f4b" />
+            <path
+              d="M18 31.5c0-8.5 7.1-15.5 15.8-15.5 5 0 9.1 2.1 12.1 5.3l-5.7 5.4c-1.8-2-4.2-3.1-6.6-3.1-4.3 0-7.9 3.3-7.9 7.5 0 4.2 3.6 7.5 7.9 7.5 2.8 0 5.2-1.4 6.7-3.6l5.6 5.5c-3.2 3.9-7.8 6.4-13.2 6.4C25 48.9 18 41.9 18 31.5Z"
+              fill="url(#composer-logo-gradient)"
+            />
+            <path
+              d="M36.6 20.5h8.2v11.7h-8.2v-11.7Zm-9 0h8.2v11.7h-8.2v-11.7Zm9 13.8h8.2v11.7h-8.2v-11.7Zm-9 0h8.2v11.7h-8.2v-11.7Z"
+              fill="#f5f7ee"
+              opacity="0.92"
+            />
+            <path
+              d="M24.5 21.8c1.8-3.9 5.7-6.6 10.2-6.6 3.3 0 6.3 1.4 8.5 3.6l-4.7 4.6c-1.1-1.1-2.6-1.8-4.1-1.8-2.7 0-4.9 2.2-4.9 4.9 0 2.8 2.4 5.1 5.4 5.1 1.4 0 2.7-.5 3.8-1.4l4.8 4.8c-2.5 2.9-6.2 4.7-10.6 4.7-7.1 0-13-5.7-13-12.9 0-3 .9-5.7 2.6-7.9Z"
+              fill="#f5f7ee"
+              opacity="0.22"
+            />
+          </svg>
           <strong>
             stacksmith<span>composer</span>
           </strong>
