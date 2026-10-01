@@ -4,7 +4,6 @@ A visual authoring workspace for [Stacksmith](https://github.com/ci-sourcerer/st
 
 Composer is an independent project. Its FastAPI package is named `stacksmith-composer`, its React frontend lives in `web/`, and it calls a separately installed Stacksmith executable. Nothing is added to the Stacksmith CLI package. The web frontend and example modules are not included in the Composer Python wheel either; run the application from a checkout for now.
 
-The Python project uses [`common-python-tasks`](https://github.com/ci-sourcerer/common-python-tasks) for shared development, packaging, release, and container-image tasks. Its bundled FastAPI development stack is explicitly excluded; Composer runs its own vanilla FastAPI application and keeps the React development server separate.
 
 ## Current implementation
 
@@ -30,16 +29,10 @@ The example assumes a sibling `../stacksmith/.venv/bin/stacksmith` executable. S
 
 The AWS example modules live in the private [`stacksmith-example-aws-modules`](https://github.com/ci-sourcerer/stacksmith-example-aws-modules) repository and are pinned to its `v0.1.0` release tag. Anonymous local example mode therefore needs a Git credential that can read that repository. For GitHub CLI development, run `gh auth setup-git` once. In GitHub mode, Composer supplies the signed-in user's short-lived GitHub App token to Stacksmith as an ephemeral Git credential.
 
-Run the API from the project root.
+Run both the API and frontend from the project root.
 
 ```sh
 uv run poe dev
-```
-
-In another terminal, start the frontend.
-
-```sh
-npm --prefix web run dev
 ```
 
 Open <http://127.0.0.1:5173>. Vite proxies `/api` to the API on port 8000. Use `127.0.0.1` consistently because OAuth callbacks and mutation-origin checks use `COMPOSER_PUBLIC_URL`.
@@ -102,7 +95,7 @@ npm --prefix web test
 npm --prefix web run build
 ```
 
-Inspect the imported tasks with `uv run poe --help`. The task list intentionally excludes the `common-python-tasks` FastAPI development-stack tasks. See the [Zensical guide to common-python-tasks](docs/common-python-tasks.md) for the shared workflow used in this repository.
+Inspect available development tasks with `uv run poe --help`.
 
 The real Stacksmith integration test is opt-in and needs Git read access to the private example modules.
 

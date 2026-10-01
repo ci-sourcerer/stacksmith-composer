@@ -25,6 +25,7 @@ CONTAINER_CUSTOM_ENTRYPOINT = "stacksmith-composer"
 [tool.poe.tasks]
 api = "uvicorn stacksmith_composer.app:create_app --factory --reload --host 127.0.0.1 --port 8000"
 web = "npm --prefix web run dev"
+dev = { sequence = ["api", "web"], parallel = true }
 
 [project.scripts]
 stacksmith-composer = "stacksmith_composer.__main__:main"
