@@ -95,6 +95,9 @@ function ValueEditor({
             const next = event.target.valueAsNumber;
             if (Number.isFinite(next)) onChange(next);
           }}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") event.currentTarget.blur();
+          }}
         />
       )}
       {type === "boolean" && (

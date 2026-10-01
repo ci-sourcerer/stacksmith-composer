@@ -476,6 +476,12 @@ export default function App() {
           event.preventDefault();
           removeRelationship(selectedRelationship);
         }
+      } else if (event.key === "Escape") {
+        if (selected || selectedRelationship) {
+          event.preventDefault();
+          setSelected(null);
+          setSelectedRelationship(null);
+        }
       }
     }
     window.addEventListener("keydown", handleKeyboard);
@@ -710,7 +716,7 @@ export default function App() {
                         {Object.keys(catalog).length}
                       </span>
                     </div>
-                    <label className="search-field">
+                    <div className="search-field">
                       <Search size={15} />
                       <input
                         placeholder="Search components…"
@@ -718,7 +724,16 @@ export default function App() {
                         value={search}
                         onChange={(event) => setSearch(event.target.value)}
                       />
-                    </label>
+                      {search && (
+                        <button
+                          className="icon-button clear-search"
+                          aria-label="Clear search"
+                          onClick={() => setSearch("")}
+                        >
+                          <X size={14} />
+                        </button>
+                      )}
+                    </div>
                     <p className="palette-hint">
                       Drag onto the canvas or click +
                     </p>
@@ -848,7 +863,7 @@ export default function App() {
                 Explore the inputs and public outputs available from your
                 platform.
               </p>
-              <label className="search-field wide">
+              <div className="search-field wide">
                 <Search size={17} />
                 <input
                   placeholder="Search by name, type, or tag…"
@@ -859,7 +874,19 @@ export default function App() {
                     setCatalogPage(0);
                   }}
                 />
-              </label>
+                {search && (
+                  <button
+                    className="icon-button clear-search"
+                    aria-label="Clear search"
+                    onClick={() => {
+                      setSearch("");
+                      setCatalogPage(0);
+                    }}
+                  >
+                    <X size={15} />
+                  </button>
+                )}
+              </div>
               <div className="catalog-grid">
                 {visibleCatalog.map(([type, definition]) => (
                   <article className="catalog-card" key={type}>
@@ -1070,11 +1097,16 @@ export default function App() {
                     onClick={() => void createPR()}
                   >
                     {creatingPR ? (
-                      <LoaderCircle size={16} className="spin" />
+                      <>
+                        <LoaderCircle size={16} className="spin" />
+                        Proposing changes…
+                      </>
                     ) : (
-                      <Github size={16} />
+                      <>
+                        <Github size={16} />
+                        Create draft pull request
+                      </>
                     )}
-                    Create draft pull request
                   </button>
                 ) : (
                   <div className="notice">
@@ -1125,7 +1157,7 @@ export default function App() {
               Repositories shared with your GitHub App and tagged{" "}
               <code>stacksmith-stack</code>.
             </p>
-            <label className="repository-search">
+            <div className="repository-search">
               <Search size={16} />
               <input
                 type="search"
@@ -1137,8 +1169,20 @@ export default function App() {
                   setRepositoryPage(0);
                 }}
               />
+              {repositorySearch && (
+                <button
+                  className="icon-button clear-search"
+                  aria-label="Clear search"
+                  onClick={() => {
+                    setRepositorySearch("");
+                    setRepositoryPage(0);
+                  }}
+                >
+                  <X size={15} />
+                </button>
+              )}
               <span>{filteredRepositories.length} repositories</span>
-            </label>
+            </div>
             {!repositories.length && (
               <div className="notice">
                 No matching repositories found. Install your GitHub App on a

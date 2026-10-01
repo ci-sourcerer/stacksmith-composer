@@ -63,6 +63,11 @@ export function Inspector(props: Props) {
             value={tags}
             placeholder="application, private"
             onChange={(event) => setTags(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                event.currentTarget.blur();
+              }
+            }}
             onBlur={() =>
               props.onChange({
                 ...props.component,
