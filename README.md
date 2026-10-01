@@ -1,5 +1,7 @@
 # Stacksmith Composer
 
+Read the [Stacksmith Composer documentation](https://composer.stacksmith.ci-sourcerer.com/) for the product workflow, GitHub integration, configuration, and security boundaries. Documentation source is maintained in [`docs/`](docs/).
+
 A visual authoring workspace for [Stacksmith](https://github.com/ci-sourcerer/stacksmith). Browse a platform's component catalog, connect public outputs to inputs, understand managed associations, review the authored diff, and open a GitHub draft pull request.
 
 Composer is an independent project. Its FastAPI package is named `stacksmith-composer`, its React frontend lives in `web/`, and it calls a separately installed Stacksmith executable. Nothing is added to the Stacksmith CLI package. The web frontend and example modules are not included in the Composer Python wheel either; run the application from a checkout for now.
@@ -111,4 +113,4 @@ stacksmith test -c examples/platform.yaml examples/tests.yaml
 
 The remaining tests use local fixtures and mocked GitHub HTTP responses. They never open actual PRs. GitHub sign-in and a real PR require a configured GitHub App and should be verified against a dedicated test repository before a hosted rollout.
 
-See [the implementation plan](docs/implementation-plan.md) for the next increments and [the architecture](docs/architecture.md) for the API and trust boundaries.
+See the [architecture and trust guide](https://composer.stacksmith.ci-sourcerer.com/architecture/) for Composer's API boundary and repository access model.

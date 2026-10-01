@@ -1,0 +1,42 @@
+[project]
+site_name = "Stacksmith Composer"
+site_description = "A visual authoring workspace for Stacksmith stacks"
+site_url = "https://composer.stacksmith.ci-sourcerer.com/"
+repo_name = "ci-sourcerer/stacksmith-composer"
+repo_url = "https://github.com/ci-sourcerer/stacksmith-composer"
+nav = [
+  { "Home" = "index.md" },
+  { "Using Composer" = "using-composer.md" },
+  { "GitHub workflow" = "github-workflow.md" },
+  { "Configuration" = "configuration.md" },
+  { "Architecture and trust" = "architecture-and-trust.md" },
+]
+
+[project.theme]
+features = [
+  "navigation.sections",
+  "navigation.expand",
+  "navigation.top",
+  "content.code.copy",
+  "toc.follow",
+]
+
+[[project.theme.palette]]
+media = "(prefers-color-scheme: light)"
+scheme = "default"
+primary = "deep purple"
+accent = "indigo"
+
+[[project.theme.palette]]
+media = "(prefers-color-scheme: dark)"
+scheme = "slate"
+primary = "deep purple"
+accent = "indigo"
+
+[project.markdown_extensions]
+admonition = {}
+attr_list = {}
+md_in_html = {}
+pymdownx.highlight = {}
+pymdownx.inlinehilite = {}
+pymdownx.superfences = {}
