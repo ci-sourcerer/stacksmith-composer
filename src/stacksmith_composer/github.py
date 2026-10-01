@@ -1,5 +1,6 @@
 import base64
 import hashlib
+from collections.abc import Callable
 from typing import Any
 from urllib.parse import quote
 
@@ -147,29 +148,21 @@ class GitHubClient:
         Raises:
             ComposerError: If the file is oversized, unsupported, or inaccessible.
         """
-        if not _is_stack_path(path) or any(
-            part in {"..", "."} for part in path.split("/")
-        ):
-            raise ComposerError("Choose a discovered stack file.")
-        payload = self._request(
-            "GET",
-            f"/repos/{_segment(owner)}/{_segment(repo)}/contents/"
-            f"{quote(path, safe='/')}",
-            params={"ref": ref},
-        )
-        if not isinstance(payload, dict) or payload.get("type") != "file":
-            raise ComposerError("Choose a regular stack file.")
-        if (
-            payload.get("size", 0) > MAX_SOURCE_BYTES
-            or payload.get("encoding") != "base64"
-        ):
-            raise ComposerError(
-                "This file is too large or cannot be read as stack source."
-            )
-        try:
-            return base64.b64decode(payload["content"]).decode("utf-8")
-        except UnicodeDecodeError as exc:
-            raise ComposerError("Stack files must contain UTF-8 text.") from exc
+        return self._read_repository_file(
+            owner,
+            repo,
+            path,
+            ref,
+            path_validator=lambda value: _is_stack_path(value)
+            and all(part not in {"..", "."} for part in value.split("/")),
+            invalid_path_error=("Choose a discovered stack file.", None),
+            not_file_error=("Choose a regular stack file.", None),
+            unreadable_error=(
+                "This file is too large or cannot be read as stack source.",
+                None,
+            ),
+            decode_error=("Stack files must contain UTF-8 text.", None),
+        )[0]
 
     def repository_file(
         self, owner: str, repo: str, path: str, ref: str
@@ -188,8 +181,35 @@ class GitHubClient:
         Raises:
             ComposerError: If the file is oversized, unsupported, or inaccessible.
         """
-        if not path or any(part in {"..", "."} for part in path.split("/")):
-            raise ComposerError("The managed config file path is invalid.", 503)
+        content, payload = self._read_repository_file(
+            owner,
+            repo,
+            path,
+            ref,
+            path_validator=lambda value: bool(value)
+            and all(part not in {"..", "."} for part in value.split("/")),
+            invalid_path_error=("The managed config file path is invalid.", 503),
+            not_file_error=("The managed config file is unavailable.", 503),
+            unreadable_error=("The managed config file is too large.", 503),
+            decode_error=("The managed config must be UTF-8 text.", 503),
+        )
+        return content, str(payload["sha"])
+
+    def _read_repository_file(
+        self,
+        owner: str,
+        repo: str,
+        path: str,
+        ref: str,
+        *,
+        path_validator: Callable[[str], bool],
+        invalid_path_error: tuple[str, int | None],
+        not_file_error: tuple[str, int | None],
+        unreadable_error: tuple[str, int | None],
+        decode_error: tuple[str, int | None],
+    ) -> tuple[str, dict[str, Any]]:
+        if not path_validator(path):
+            raise ComposerError(*invalid_path_error)
         payload = self._request(
             "GET",
             f"/repos/{_segment(owner)}/{_segment(repo)}/contents/"
@@ -197,17 +217,17 @@ class GitHubClient:
             params={"ref": ref},
         )
         if not isinstance(payload, dict) or payload.get("type") != "file":
-            raise ComposerError("The managed config file is unavailable.", 503)
+            raise ComposerError(*not_file_error)
         if (
             payload.get("size", 0) > MAX_SOURCE_BYTES
             or payload.get("encoding") != "base64"
         ):
-            raise ComposerError("The managed config file is too large.", 503)
+            raise ComposerError(*unreadable_error)
         try:
             content = base64.b64decode(payload["content"]).decode("utf-8")
         except (KeyError, ValueError, UnicodeDecodeError) as exc:
-            raise ComposerError("The managed config must be UTF-8 text.", 503) from exc
-        return content, str(payload["sha"])
+            raise ComposerError(*decode_error) from exc
+        return content, payload
 
     def create_pr(self, snapshot: dict[str, Any], source: str) -> dict[str, Any]:
         """Create a deterministic branch and PR for exactly the reviewed stack source.
