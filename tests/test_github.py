@@ -87,11 +87,21 @@ def test_pr_writes_exactly_one_file_to_a_new_branch_and_retries_reuse_pr():
         ],
     }
     assert json.loads(writes[2].content)["ref"].startswith("refs/heads/composer/")
-    assert json.loads(writes[3].content)["draft"] is True
+    assert json.loads(writes[3].content)["draft"] is False
+    assert first["patch_url"] == f"{first['url']}.patch"
     assert all(
         request.headers["authorization"] == "Bearer test-token"
         for request in fixture.requests
     )
+
+
+def test_pr_can_be_created_as_a_draft():
+    fixture = GitHubFixture()
+    GitHubClient("token", httpx.MockTransport(fixture.handle)).create_pr(
+        SNAPSHOT, "changed", draft=True
+    )
+    writes = [request for request in fixture.requests if request.method == "POST"]
+    assert json.loads(writes[-1].content)["draft"] is True
 
 
 def test_changed_base_prevents_all_writes():

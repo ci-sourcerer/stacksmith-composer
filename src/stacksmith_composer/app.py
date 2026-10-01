@@ -274,11 +274,15 @@ def open_stack(
 def pull_request(
     request: Request, draft: Draft, client: Annotated[GitHubClient, Depends(_github)]
 ):
-    """Reinspect a reviewed draft and open a draft PR under the user's permissions."""
+    """Reinspect reviewed changes and open a PR under the user's permissions."""
     snapshot, inspected = _review(request, draft)
     if not snapshot["repository"] or not inspected["diff"]:
         raise ComposerError("There are no repository changes to propose.")
-    return client.create_pr(snapshot, inspected["source"])
+    return client.create_pr(
+        snapshot,
+        inspected["source"],
+        draft=request.app.state.settings.draft_pull_requests,
+    )
 
 
 @router.get("/auth/github")

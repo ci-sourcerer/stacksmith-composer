@@ -71,7 +71,7 @@ This version uses one administrator-selected managed config for every repository
 
 GitHub tokens are encrypted in the local SQLite database and represented in the browser by an opaque HTTP-only cookie. Sessions last at most eight hours; sign in again when they expire. The same stable `COMPOSER_SECRET_KEY` is required across restarts. Changing that key requires clearing the session database. During Stacksmith inspection, the current token is exposed only to the child process through Stacksmith's ephemeral Git credential environment. Refresh-token rotation and webhook-driven invalidation are not implemented yet.
 
-PR creation uses a new deterministic `composer/…` branch and changes only the selected stack file. It checks the captured base commit before writing, rechecks push access, and reuses a previously created PR on retry. Composer never writes directly to the default branch. Full validation, plan, and deployment belong in the repository's CI.
+PR creation uses a new deterministic `composer/…` branch and changes only the selected stack file. Set `COMPOSER_DRAFT_PULL_REQUESTS=true` to create draft PRs; otherwise Composer creates regular PRs. It checks the captured base commit before writing, rechecks push access, and reuses a previously created PR on retry. The PR patch can be downloaded from the review panel. Composer never writes directly to the default branch. Full validation, plan, and deployment belong in the repository's CI.
 
 ## Supported authoring boundary
 

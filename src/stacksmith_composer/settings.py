@@ -19,6 +19,7 @@ class Settings(BaseSettings):
     secret_key: str = Field(default_factory=lambda: token_urlsafe(48))
     github_client_id: str = ""
     github_client_secret: str = ""
+    draft_pull_requests: bool = False
     command_timeout: int = 30
 
     @property

@@ -101,7 +101,11 @@ export default function App() {
   const [stackPaths, setStackPaths] = useState<string[]>([]);
   const [pathsLoading, setPathsLoading] = useState(false);
   const [creatingPR, setCreatingPR] = useState(false);
-  const [pr, setPr] = useState<{ url: string; number: number }>();
+  const [pr, setPr] = useState<{
+    url: string;
+    patch_url: string;
+    number: number;
+  }>();
 
   function loadSnapshot(opened: Snapshot) {
     dispatchDraft({
@@ -1120,7 +1124,7 @@ export default function App() {
                     rel="noreferrer"
                   >
                     <Github size={16} />
-                    Open draft PR #{pr.number}
+                    Open pull request #{pr.number}
                   </a>
                 ) : snapshot?.repository ? (
                   <button
@@ -1136,7 +1140,7 @@ export default function App() {
                     ) : (
                       <>
                         <Github size={16} />
-                        Create draft pull request
+                        Create pull request
                       </>
                     )}
                   </button>
@@ -1145,6 +1149,12 @@ export default function App() {
                     GitHub PR creation is available when a GitHub App is
                     configured and a repository stack is open.
                   </div>
+                )}
+                {pr && (
+                  <a className="button" href={pr.patch_url} download>
+                    <ArrowDownToLine size={16} />
+                    Download PR patch
+                  </a>
                 )}
                 <button
                   className="button"
