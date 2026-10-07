@@ -6,7 +6,6 @@ A visual authoring workspace for [Stacksmith](https://github.com/ci-sourcerer/st
 
 Composer is an independent project. Its FastAPI package is named `stacksmith-composer`, its React frontend lives in `web/`, and it calls a separately installed Stacksmith executable. Nothing is added to the Stacksmith CLI package. The web frontend and example modules are not included in the Composer Python wheel either; run the application from a checkout for now.
 
-
 ## Current implementation
 
 - React, TypeScript, Vite, and React Flow canvas with draggable components and named input/output ports.

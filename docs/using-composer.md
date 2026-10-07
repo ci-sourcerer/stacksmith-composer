@@ -18,7 +18,9 @@ The inspector checks references and relationships through Stacksmith and checks 
 
 Open the review panel to see the exact proposed source and unified diff. Composer preserves the original source byte-for-byte when there are no edits. YAML comments and unchanged scalar styles are preserved for supported edits; changed JSON is formatted with two-space indentation.
 
-Download the reviewed stack file to use it outside a GitHub workflow. Diagram positions and manual relationship routes are held in the current browser tab and are not written to the stack file. Unsaved edits are not recoverable after that tab is closed.
+Components and routing points snap to the grid on load and during movement. Drag a line label to reposition it; select a line and use Hide label or Show label to control its visibility. Labels stay visible until manually hidden.
+
+Download the reviewed stack file to keep changes outside a GitHub workflow. Component positions, routing points, and label positions are saved under `metadata.stacksmith_composer`. Label visibility is local to the UI. Unsaved edits are not recoverable after the tab is closed.
 
 ## Supported source boundary
 

@@ -133,7 +133,9 @@ def _validate_metadata(metadata: Any) -> None:
             or not isinstance(route.get("points"), list)
         ):
             raise ComposerError("Each diagram route needs a list of points.")
-        for point in route["points"]:
+        for point in route["points"] + (
+            [route["label_position"]] if "label_position" in route else []
+        ):
             if (
                 not isinstance(point, dict)
                 or set(point) != {"x", "y"}

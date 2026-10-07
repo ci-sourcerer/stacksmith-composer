@@ -15,7 +15,14 @@ import {
 } from "@xyflow/react";
 import { ComponentNode, type ComposerNode } from "./ComponentNode";
 import { RoutedEdge, type RoutedEdgeDefinition } from "./RoutedEdge";
+import {
+  automaticRoute,
+  orthogonalRoute,
+  insertRoutePoint,
+  routeLabelPosition,
+} from "../routing";
 import { relationshipKey } from "../model";
+import { GRID_SIZE, initialPosition, snapPoint } from "../layout";
 import type {
   Catalog,
   Components,
@@ -30,6 +37,11 @@ const edgeTypes = { route: RoutedEdge };
 interface Props {
   positions: Record<string, { x: number; y: number }>;
   routes: DiagramRoute[];
+  onLabelPositionChange: (
+    relationship: Relationship,
+    point: DiagramPoint,
+    record: boolean,
+  ) => void;
   onPositionChange: (
     name: string,
     position: { x: number; y: number },
@@ -59,17 +71,15 @@ interface Props {
 function Diagram(props: Props) {
   const { positions } = props;
   const [nodes, setNodes] = useState<ComposerNode[]>([]);
+  const [hiddenLabels, setHiddenLabels] = useState<Set<string>>(new Set());
   const dragging = useRef(new Set<string>());
-  const { screenToFlowPosition } = useReactFlow();
+  const { screenToFlowPosition, getInternalNode } = useReactFlow();
   useEffect(() => {
     setNodes(
       Object.entries(props.components).map(([name, component], index) => ({
         id: name,
         type: "component",
-        position: positions[name] ?? {
-          x: (index % 3) * 330 + 50,
-          y: Math.floor(index / 3) * 330 + (index % 2) * 85 + 50,
-        },
+        position: snapPoint(positions[name] ?? initialPosition(index)),
         selected: props.selected === name,
         data: {
           name,
@@ -118,6 +128,12 @@ function Diagram(props: Props) {
         deletable: false,
         data: {
           relationship,
+          labelHidden: hiddenLabels.has(relationshipKey(relationship)),
+          labelPosition: props.routes.find(
+            (route) => relationshipKey(route) === relationshipKey(relationship),
+          )?.label_position,
+          onLabelChange: (point: DiagramPoint, record: boolean) =>
+            props.onLabelPositionChange(relationship, point, record),
           points:
             props.routes.find(
               (route) =>
@@ -133,6 +149,8 @@ function Diagram(props: Props) {
       props.routes,
       props.selectedRelationship,
       props.onRouteChange,
+      props.onLabelPositionChange,
+      hiddenLabels,
     ],
   );
 
@@ -156,48 +174,51 @@ function Diagram(props: Props) {
       (candidate) =>
         relationshipKey(candidate) === relationshipKey(relationship),
     );
-    const source = nodes.find((node) => node.id === relationship.source);
-    const target = nodes.find((node) => node.id === relationship.target);
-    if (!source || !target) return;
-    const completePath = [
-      {
-        x: source.position.x + (source.measured?.width ?? 180) / 2,
-        y: source.position.y + (source.measured?.height ?? 120) / 2,
-      },
-      ...(route?.points ?? []),
-      {
-        x: target.position.x + (target.measured?.width ?? 180) / 2,
-        y: target.position.y + (target.measured?.height ?? 120) / 2,
-      },
-    ];
-    let longestIndex = 0;
-    for (let index = 1; index < completePath.length - 1; index++) {
-      if (
-        Math.hypot(
-          completePath[index + 1].x - completePath[index].x,
-          completePath[index + 1].y - completePath[index].y,
-        ) >
-        Math.hypot(
-          completePath[longestIndex + 1].x - completePath[longestIndex].x,
-          completePath[longestIndex + 1].y - completePath[longestIndex].y,
-        )
-      )
-        longestIndex = index;
-    }
+    const source = getInternalNode(relationship.source);
+    const target = getInternalNode(relationship.target);
+    const sourceHandle = source?.internals.handleBounds?.source?.find(
+      (handle) => handle.id === `out:${relationship.output}`,
+    );
+    const targetHandle = target?.internals.handleBounds?.target?.find(
+      (handle) => handle.id === `in:${relationship.property}`,
+    );
+    if (!source || !target || !sourceHandle || !targetHandle) return;
+    const start = {
+      x:
+        source.internals.positionAbsolute.x +
+        sourceHandle.x +
+        sourceHandle.width,
+      y:
+        source.internals.positionAbsolute.y +
+        sourceHandle.y +
+        sourceHandle.height / 2,
+    };
+    const end = {
+      x: target.internals.positionAbsolute.x + targetHandle.x,
+      y:
+        target.internals.positionAbsolute.y +
+        targetHandle.y +
+        targetHandle.height / 2,
+    };
+    const completePath = route?.points.length
+      ? orthogonalRoute(start, route.points, end)
+      : automaticRoute(
+          start,
+          end,
+          nodes.map((node) => ({
+            ...node.position,
+            width: node.measured?.width ?? 232,
+            height: node.measured?.height ?? 120,
+          })),
+        );
     props.onRouteChange(
       relationship,
-      [
-        ...completePath.slice(1, longestIndex + 1),
-        {
-          x:
-            (completePath[longestIndex].x + completePath[longestIndex + 1].x) /
-            2,
-          y:
-            (completePath[longestIndex].y + completePath[longestIndex + 1].y) /
-            2,
-        },
-        ...completePath.slice(longestIndex + 1, -1),
-      ],
+      insertRoutePoint(
+        start,
+        completePath.slice(1, -1),
+        end,
+        routeLabelPosition(completePath),
+      ),
       true,
     );
   }
@@ -242,6 +263,8 @@ function Diagram(props: Props) {
           props.onSelectRelationship(null);
         }}
         onConnect={props.onConnect}
+        snapToGrid
+        snapGrid={[GRID_SIZE, GRID_SIZE]}
         edgesReconnectable={false}
         deleteKeyCode={null}
         fitView
@@ -251,7 +274,7 @@ function Diagram(props: Props) {
       >
         <Background
           variant={BackgroundVariant.Dots}
-          gap={22}
+          gap={GRID_SIZE}
           size={1}
           color="#d6d9d0"
         />
@@ -260,7 +283,7 @@ function Diagram(props: Props) {
           pannable
           zoomable
           nodeColor="#b4c6bb"
-          maskColor="rgba(243,244,238,0.7)"
+          maskColor="var(--minimap-mask, rgba(243,244,238,0.7))"
         />
         <Panel position="top-left">
           <div className="canvas-label">
@@ -293,30 +316,64 @@ function Diagram(props: Props) {
             </button>
           </div>
         </Panel>
-        <Panel position="bottom-center">
-          <div
-            className={`legend ${props.selectedRelationship ? "has-selection" : ""}`}
-          >
-            <span>
-              <i className="reference-line" />
-              Output reference
-            </span>
-            <span>
-              <i className="association-line" />
-              Managed association
-            </span>
-            <em>Double-click a line to add a routing point</em>
-            {props.selectedRelationship && (
-              <>
-                <button className="route-add-button" onClick={addRoutingPoint}>
-                  + Add routing point
-                </button>
-                <strong>Drag points · Double-click a point to remove it</strong>
-              </>
-            )}
-          </div>
-        </Panel>
       </ReactFlow>
+      <div className="canvas-legend">
+        <div
+          className={`legend ${props.selectedRelationship ? "has-selection" : ""}`}
+        >
+          <span>
+            <i className="reference-line" />
+            Output reference
+          </span>
+          <span>
+            <i className="association-line" />
+            Managed association
+          </span>
+          <em>Double-click a line to add a routing point</em>
+          {props.selectedRelationship && (
+            <>
+              <button className="route-add-button" onClick={addRoutingPoint}>
+                + Add routing point
+              </button>
+              <button
+                className="route-add-button"
+                onClick={() =>
+                  setHiddenLabels((current) => {
+                    const next = new Set(current);
+                    if (next.has(props.selectedRelationship!))
+                      next.delete(props.selectedRelationship!);
+                    else next.add(props.selectedRelationship!);
+                    return next;
+                  })
+                }
+              >
+                {hiddenLabels.has(props.selectedRelationship)
+                  ? "Show label"
+                  : "Hide label"}
+              </button>
+              <button
+                className="route-add-button"
+                disabled={
+                  !props.routes.some(
+                    (route) =>
+                      relationshipKey(route) === props.selectedRelationship,
+                  )
+                }
+                onClick={() => {
+                  const relationship = props.relationships.find(
+                    (candidate) =>
+                      relationshipKey(candidate) === props.selectedRelationship,
+                  );
+                  if (relationship) props.onRouteChange(relationship, [], true);
+                }}
+              >
+                Reset routing
+              </button>
+              <strong>Drag points · Double-click a point to remove it</strong>
+            </>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

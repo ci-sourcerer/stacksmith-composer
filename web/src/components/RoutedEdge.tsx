@@ -1,48 +1,33 @@
 import {
   BaseEdge,
-  getSmoothStepPath,
+  EdgeLabelRenderer,
+  useNodes,
   useReactFlow,
   type Edge,
   type EdgeProps,
 } from "@xyflow/react";
 import { useEffect, useState } from "react";
 import type { DiagramPoint, Relationship } from "../types";
-import { insertRoutePoint } from "../routing";
+import {
+  automaticRoute,
+  routeLabelPosition,
+  insertRoutePoint,
+  orthogonalRoute,
+  projectToRoute,
+  roundedRoutePath,
+} from "../routing";
+import { snapPoint } from "../layout";
 
 export interface RoutedEdgeData extends Record<string, unknown> {
   relationship: Relationship;
   points: DiagramPoint[];
   onChange: (points: DiagramPoint[], record: boolean) => void;
+  labelPosition?: DiagramPoint;
+  labelHidden: boolean;
+  onLabelChange: (point: DiagramPoint, record: boolean) => void;
 }
 
 export type RoutedEdgeDefinition = Edge<RoutedEdgeData, "route">;
-
-function routedPath(points: DiagramPoint[]): string {
-  return points
-    .map((point, index) => `${index ? "L" : "M"} ${point.x} ${point.y}`)
-    .join(" ");
-}
-
-function pathMidpoint(points: DiagramPoint[]): DiagramPoint {
-  const lengths = points
-    .slice(1)
-    .map((point, index) =>
-      Math.hypot(point.x - points[index].x, point.y - points[index].y),
-    );
-  const halfway = lengths.reduce((sum, length) => sum + length, 0) / 2;
-  let traveled = 0;
-  for (let index = 0; index < lengths.length; index++) {
-    if (traveled + lengths[index] >= halfway) {
-      const amount = lengths[index] ? (halfway - traveled) / lengths[index] : 0;
-      return {
-        x: points[index].x + amount * (points[index + 1].x - points[index].x),
-        y: points[index].y + amount * (points[index + 1].y - points[index].y),
-      };
-    }
-    traveled += lengths[index];
-  }
-  return points.at(-1) ?? { x: 0, y: 0 };
-}
 
 export function RoutedEdge({
   id,
@@ -50,37 +35,63 @@ export function RoutedEdge({
   sourceY,
   targetX,
   targetY,
-  sourcePosition,
-  targetPosition,
   data,
   selected,
   style,
   label,
-  labelStyle,
-  labelShowBg,
-  labelBgStyle,
-  labelBgPadding,
-  labelBgBorderRadius,
   markerStart,
   markerEnd,
   interactionWidth,
 }: EdgeProps<RoutedEdgeDefinition>) {
   const { screenToFlowPosition } = useReactFlow();
+  const nodes = useNodes();
   const [selectedPoint, setSelectedPoint] = useState<number | null>(null);
   const points = data?.points ?? [];
   const source = { x: sourceX, y: sourceY };
   const target = { x: targetX, y: targetY };
-  const completePath = [source, ...points, target];
-  const [defaultPath, defaultLabelX, defaultLabelY] = getSmoothStepPath({
-    sourceX,
-    sourceY,
-    sourcePosition,
-    targetX,
-    targetY,
-    targetPosition,
-  });
-  const midpoint = pathMidpoint(completePath);
-  const edgePath = points.length ? routedPath(completePath) : defaultPath;
+  const completePath = points.length
+    ? orthogonalRoute(source, points, target)
+    : automaticRoute(
+        source,
+        target,
+        nodes.map((node) => ({
+          ...node.position,
+          width: node.measured?.width ?? 232,
+          height: node.measured?.height ?? 120,
+        })),
+      );
+  const edgePath = roundedRoutePath(completePath);
+  const projectedLabel = projectToRoute(
+    data?.labelPosition ?? routeLabelPosition(completePath),
+    completePath,
+  );
+  const labelPosition = projectedLabel.point;
+
+  function beginLabelDrag(event: React.PointerEvent<HTMLDivElement>) {
+    event.preventDefault();
+    event.stopPropagation();
+    event.currentTarget.focus();
+    let firstMove = true;
+    const move = (pointerEvent: PointerEvent) => {
+      const current = screenToFlowPosition({
+        x: pointerEvent.clientX,
+        y: pointerEvent.clientY,
+      });
+      data?.onLabelChange(
+        projectToRoute(current, completePath).point,
+        firstMove,
+      );
+      firstMove = false;
+    };
+    const finish = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", finish);
+      window.removeEventListener("pointercancel", finish);
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", finish, { once: true });
+    window.addEventListener("pointercancel", finish, { once: true });
+  }
   useEffect(() => {
     if (!selected || (selectedPoint !== null && selectedPoint >= points.length))
       setSelectedPoint(null);
@@ -99,10 +110,12 @@ export function RoutedEdge({
       data?.onChange(
         points.map((point, pointIndex) =>
           pointIndex === index
-            ? screenToFlowPosition({
-                x: pointerEvent.clientX,
-                y: pointerEvent.clientY,
-              })
+            ? snapPoint(
+                screenToFlowPosition({
+                  x: pointerEvent.clientX,
+                  y: pointerEvent.clientY,
+                }),
+              )
             : point,
         ),
         firstMove,
@@ -112,9 +125,11 @@ export function RoutedEdge({
     const finish = () => {
       window.removeEventListener("pointermove", move);
       window.removeEventListener("pointerup", finish);
+      window.removeEventListener("pointercancel", finish);
     };
     window.addEventListener("pointermove", move);
     window.addEventListener("pointerup", finish, { once: true });
+    window.addEventListener("pointercancel", finish, { once: true });
   }
 
   return (
@@ -125,9 +140,11 @@ export function RoutedEdge({
         data?.onChange(
           insertRoutePoint(
             source,
-            points,
+            points.length ? points : completePath.slice(1, -1),
             target,
-            screenToFlowPosition({ x: event.clientX, y: event.clientY }),
+            snapPoint(
+              screenToFlowPosition({ x: event.clientX, y: event.clientY }),
+            ),
           ),
           true,
         );
@@ -136,19 +153,59 @@ export function RoutedEdge({
       <BaseEdge
         id={id}
         path={edgePath}
-        labelX={points.length ? midpoint.x : defaultLabelX}
-        labelY={points.length ? midpoint.y : defaultLabelY}
         style={style}
-        label={label}
-        labelStyle={labelStyle}
-        labelShowBg={labelShowBg}
-        labelBgStyle={labelBgStyle}
-        labelBgPadding={labelBgPadding}
-        labelBgBorderRadius={labelBgBorderRadius}
         markerStart={markerStart}
         markerEnd={markerEnd}
         interactionWidth={interactionWidth}
       />
+      {!data?.labelHidden && label && (
+        <EdgeLabelRenderer>
+          <div
+            className="edge-label nodrag nopan"
+            style={{
+              transform: `translate(-50%, -50%) translate(${labelPosition.x}px, ${labelPosition.y}px) rotate(${projectedLabel.angle}deg)`,
+            }}
+            role="button"
+            tabIndex={0}
+            aria-label={`Move label: ${label}`}
+            data-keyboard-owner="true"
+            onPointerDown={beginLabelDrag}
+            onDoubleClick={(event) => event.stopPropagation()}
+            onKeyDown={(event) => {
+              if (
+                !["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(
+                  event.key,
+                )
+              )
+                return;
+              event.preventDefault();
+              event.stopPropagation();
+              const candidate = {
+                x:
+                  labelPosition.x +
+                  (event.key === "ArrowLeft"
+                    ? -22
+                    : event.key === "ArrowRight"
+                      ? 22
+                      : 0),
+                y:
+                  labelPosition.y +
+                  (event.key === "ArrowUp"
+                    ? -22
+                    : event.key === "ArrowDown"
+                      ? 22
+                      : 0),
+              };
+              data?.onLabelChange(
+                projectToRoute(candidate, completePath).point,
+                true,
+              );
+            }}
+          >
+            {label}
+          </div>
+        </EdgeLabelRenderer>
+      )}
       {selected &&
         points.map((point, index) => (
           <circle

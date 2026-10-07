@@ -474,9 +474,27 @@ input[type="checkbox"] {
   min-width: 0;
 }
 .canvas {
+  display: flex;
+  flex-direction: column;
   background: #f4f6ef;
   flex: 1;
   min-height: 0;
+}
+.canvas > .react-flow {
+  flex: 1;
+  min-height: 0;
+}
+.canvas-legend {
+  flex-shrink: 0;
+  padding: 6px 12px;
+}
+.canvas-legend .legend {
+  justify-content: center;
+  flex-wrap: wrap;
+  margin: 0;
+}
+.dark .canvas {
+  --minimap-mask: rgba(20, 27, 23, 0.7);
 }
 .canvas-label {
   background: #f9fbf5e8;
@@ -603,15 +621,25 @@ input[type="checkbox"] {
   background: #f4f6efcc !important;
   color: #87977b !important;
 }
-.react-flow__edge .react-flow__edge-textwrapper {
-  opacity: 0;
-  transition: opacity 0.15s ease;
-  pointer-events: none;
-}
-.react-flow__edge:hover .react-flow__edge-textwrapper,
-.react-flow__edge.selected .react-flow__edge-textwrapper {
-  opacity: 1;
+.edge-label {
+  white-space: nowrap;
+  position: absolute;
   pointer-events: auto;
+  cursor: grab;
+  touch-action: none;
+  padding: 4px 7px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--paper);
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 600;
+}
+.edge-label:active {
+  cursor: grabbing;
+}
+.edge-label:focus-visible {
+  outline: 2px solid var(--green);
 }
 .route-point {
   fill: var(--paper);

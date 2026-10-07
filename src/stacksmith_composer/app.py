@@ -42,6 +42,7 @@ class DiagramRoute(BaseModel):
     kind: Literal["reference", "association"]
     rule: str | None = None
     points: list[DiagramPosition]
+    label_position: DiagramPosition | None = None
 
 
 class Draft(BaseModel):
@@ -163,7 +164,12 @@ def _review(request: Request, draft: Draft) -> tuple[dict[str, Any], dict[str, A
             for name, position in draft.positions.items()
             if name in draft.components
         },
-        [route.model_dump() for route in draft.routes],
+        [
+            route.model_dump(
+                exclude={"label_position"} if route.label_position is None else set()
+            )
+            for route in draft.routes
+        ],
     )
     # Enforce document limits on the edited source too.
     github_token = _github_token(request)

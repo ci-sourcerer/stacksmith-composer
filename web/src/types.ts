@@ -63,6 +63,7 @@ export interface DiagramPoint {
 }
 export interface DiagramRoute extends Relationship {
   points: DiagramPoint[];
+  label_position?: DiagramPoint;
 }
 export interface AssociationRule {
   name: string;

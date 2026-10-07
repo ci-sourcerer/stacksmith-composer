@@ -40,6 +40,7 @@ import { Inspector } from "./components/Inspector";
 import { PlatformView } from "./components/PlatformView";
 import { TypeIcon } from "./components/ComponentNode";
 import { useDarkMode } from "./useDarkMode";
+import { newComponentPosition, snapPoint } from "./layout";
 import type {
   Catalog,
   Platform,
@@ -111,9 +112,20 @@ export default function App() {
     dispatchDraft({
       type: "reset",
       draft: {
-        positions:
-          opened.document?.metadata?.stacksmith_composer?.positions ?? {},
-        routes: opened.document?.metadata?.stacksmith_composer?.routes ?? [],
+        positions: Object.fromEntries(
+          Object.entries(
+            opened.document?.metadata?.stacksmith_composer?.positions ?? {},
+          ).map(([name, point]) => [name, snapPoint(point)]),
+        ),
+        routes: (
+          opened.document?.metadata?.stacksmith_composer?.routes ?? []
+        ).map((route) => ({
+          ...route,
+          points: route.points.map(snapPoint),
+          ...(route.label_position
+            ? { label_position: route.label_position }
+            : {}),
+        })),
         components: opened.document?.components ?? {},
         disabled: opened.document?.disabled_associations ?? [],
       },
@@ -261,6 +273,15 @@ export default function App() {
           ...draft.components,
           [name]: { type, properties: {} },
         },
+        positions: {
+          ...draft.positions,
+          [name]: newComponentPosition(
+            type,
+            draft.components,
+            draft.positions,
+            catalog,
+          ),
+        },
       }),
     });
     setSelected(name);
@@ -382,10 +403,7 @@ export default function App() {
         ...draft,
         positions: {
           ...draft.positions,
-          [name]: {
-            x: Math.round(position.x),
-            y: Math.round(position.y),
-          },
+          [name]: snapPoint(position),
         },
       }),
     });
@@ -407,13 +425,46 @@ export default function App() {
               ...draft.routes.filter((route) => relationshipKey(route) !== key),
               {
                 ...relationship,
-                points: points.map((point) => ({
-                  x: Math.round(point.x),
-                  y: Math.round(point.y),
-                })),
+                ...(draft.routes.find((route) => relationshipKey(route) === key)
+                  ?.label_position
+                  ? {
+                      label_position: draft.routes.find(
+                        (route) => relationshipKey(route) === key,
+                      )!.label_position,
+                    }
+                  : {}),
+                points: points.map(snapPoint),
               },
             ]
           : draft.routes.filter((route) => relationshipKey(route) !== key),
+      }),
+    });
+  }
+
+  function changeLabelPosition(
+    relationship: Relationship,
+    position: { x: number; y: number },
+    record: boolean,
+  ) {
+    dispatchDraft({
+      type: "change",
+      record,
+      update: (draft) => ({
+        ...draft,
+        routes: [
+          ...draft.routes.filter(
+            (route) => relationshipKey(route) !== relationshipKey(relationship),
+          ),
+          {
+            ...relationship,
+            points:
+              draft.routes.find(
+                (route) =>
+                  relationshipKey(route) === relationshipKey(relationship),
+              )?.points ?? [],
+            label_position: position,
+          },
+        ],
       }),
     });
   }
@@ -826,6 +877,7 @@ export default function App() {
                     <Canvas
                       positions={positions}
                       routes={routes}
+                      onLabelPositionChange={changeLabelPosition}
                       onPositionChange={changePosition}
                       onRouteChange={changeRoute}
                       key={snapshot.snapshot}

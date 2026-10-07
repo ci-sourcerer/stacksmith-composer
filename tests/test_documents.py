@@ -53,6 +53,57 @@ def test_json_remains_json():
     assert json.loads(proposed)["components"]["api"]["type"] == "service"
 
 
+def test_label_position_round_trips_without_custom_routing_points():
+    route = {
+        "source": "api",
+        "target": "worker",
+        "output": "url",
+        "property": "url",
+        "path": ["url"],
+        "kind": "reference",
+        "rule": None,
+        "points": [],
+        "label_position": {"x": 220, "y": 132},
+    }
+    proposed = compose_source(
+        SOURCE, load_document(SOURCE)["components"], [], "stack.yaml", routes=[route]
+    )
+    assert load_document(proposed)["metadata"]["stacksmith_composer"]["routes"] == [
+        route
+    ]
+
+
+@pytest.mark.parametrize(
+    "point", [{"x": True, "y": 0}, {"x": float("inf"), "y": 0}, {"x": 1}]
+)
+def test_invalid_label_positions_are_rejected(point):
+    with pytest.raises(ComposerError, match="finite x and y"):
+        load_document(
+            json.dumps(
+                {
+                    "name": "test",
+                    "components": {},
+                    "metadata": {
+                        "stacksmith_composer": {
+                            "routes": [
+                                {
+                                    "source": "api",
+                                    "target": "worker",
+                                    "output": "url",
+                                    "property": "url",
+                                    "path": ["url"],
+                                    "kind": "reference",
+                                    "points": [],
+                                    "label_position": point,
+                                }
+                            ]
+                        }
+                    },
+                }
+            )
+        )
+
+
 @pytest.mark.parametrize(
     "source",
     [
