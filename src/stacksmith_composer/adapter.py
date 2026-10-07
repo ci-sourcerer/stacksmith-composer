@@ -88,6 +88,10 @@ class StacksmithAdapter:
                 "Stacksmith could not resolve this draft against the managed config. "
                 "Check required inputs, association cardinality, and component outputs."
             )
+        if source is not None and args[:2] == ["info", "explain"]:
+            return result.stdout.replace(
+                str(Path(directory, "stack.yaml").resolve()), "Current draft"
+            )
         return result.stdout
 
     def _json(
@@ -134,6 +138,26 @@ class StacksmithAdapter:
             ComposerError: If the stack cannot be resolved.
         """
         return self._json(["info", "associations"], source, github_token)
+
+    def resolution(
+        self, source: str, github_token: str | None = None, query: str | None = None
+    ) -> dict[str, Any]:
+        """Inspect effective configuration and provenance with values redacted.
+
+        Args:
+            source: The current authored stack source.
+            github_token: Session credential for approved private sources.
+            query: Optional dotted configuration address to explain.
+
+        Returns:
+            Effective documents and ordered events, or a queried value and events.
+
+        Raises:
+            ComposerError: If Stacksmith cannot resolve the draft or address.
+        """
+        return self._json(
+            ["info", "explain", *([query] if query else [])], source, github_token
+        )
 
 
 def _subprocess_environment(github_token: str | None) -> dict[str, str]:

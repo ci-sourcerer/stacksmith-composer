@@ -14,6 +14,14 @@ Connect a named output on one component to a property on another. Composer recor
 
 The inspector checks references and relationships through Stacksmith and checks component cycles. This is an authoring inspection, not full Stacksmith validation or an infrastructure plan. Run the repository's normal validation and planning workflow before applying infrastructure.
 
+## Inspect configuration resolution
+
+Open **Resolution** in the stack toolbar to inspect the current draft against the managed platform config. The effective configuration includes the merged stack and config, resolved inputs, final component properties, and module blocks. Expand a section to inspect its structure.
+
+Switch to **Resolution history** to see source contributions and merge decisions in order, including managed defaults, transforms, renames, and injected inputs. Expand an event to inspect its metadata. Enter a dotted address such as `inputs.region` or `components.api.properties.instance_type` and choose **Explain** to follow its contributing inputs and mappings. Both authored property names and mapped module input names are supported. Select a component on the canvas first to get a shortcut for its properties. **All configuration** clears the query, and **Refresh** retries inspection.
+
+Values and templates remain redacted, including overridden contributions. Composer uses `stacksmith info explain` and requires a Stacksmith version providing that command. Resolution uses the current draft and deployment-managed config; repository runfile and variable layers are not included. Configured Python validations and transforms still execute, and module discovery may fetch sources. This inspection does not generate infrastructure files or run a plan.
+
 ## Review and download
 
 Open the review panel to see the exact proposed source and unified diff. Composer preserves the original source byte-for-byte when there are no edits. YAML comments and unchanged scalar styles are preserved for supported edits; changed JSON is formatted with two-space indentation.

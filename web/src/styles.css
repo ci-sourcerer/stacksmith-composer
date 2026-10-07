@@ -1698,6 +1698,65 @@ input[type="checkbox"] {
   font-size: 12px;
   color: var(--muted);
 }
+.resolution-query {
+  margin: 24px 0;
+}
+.resolution-query label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+.resolution-query-controls,
+.resolution-shortcuts,
+.resolution-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.resolution-query-controls input {
+  flex: 1 1 280px;
+  min-width: 0;
+  font-family: monospace;
+}
+.resolution-tabs {
+  margin-bottom: 20px;
+}
+.resolution-section {
+  border: 1px solid var(--line);
+  background: var(--paper);
+  border-radius: 8px;
+  margin-bottom: 10px;
+  overflow: hidden;
+}
+.resolution-section summary {
+  cursor: pointer;
+  padding: 14px;
+  overflow-wrap: anywhere;
+}
+.resolution-section summary code {
+  margin-left: 8px;
+}
+.resolution-source {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+  margin-top: 8px;
+  overflow-wrap: anywhere;
+}
+.resolution-json {
+  margin: 0;
+  padding: 16px;
+  background: var(--paper);
+  overflow: auto;
+  max-height: 500px;
+  font-size: 12px;
+}
+.resolution-events {
+  padding-left: 32px;
+}
+.resolution-events li::marker {
+  color: var(--muted);
+}
 .spin {
   animation: spin 1s linear infinite;
 }

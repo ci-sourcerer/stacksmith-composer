@@ -55,6 +55,16 @@ class Draft(BaseModel):
     routes: list[DiagramRoute] = Field(default_factory=list, max_length=500)
 
 
+class ResolutionDraft(Draft):
+    """A draft with an optional configuration address to explain."""
+
+    query: str | None = Field(
+        default=None,
+        max_length=1000,
+        pattern=r"^(inputs|components|stack|config)(\.[^.\s]+)*$",
+    )
+
+
 def _identity(request: Request) -> tuple[str, str] | None:
     session = request.app.state.sessions.get(
         request.cookies.get("composer_session", "")
@@ -152,7 +162,7 @@ def _snapshot(request: Request, token: str) -> dict[str, Any]:
     return snapshot
 
 
-def _review(request: Request, draft: Draft) -> tuple[dict[str, Any], dict[str, Any]]:
+def _draft_source(request: Request, draft: Draft) -> tuple[dict[str, Any], str]:
     snapshot = _snapshot(request, draft.snapshot)
     source = compose_source(
         snapshot["source"],
@@ -172,6 +182,12 @@ def _review(request: Request, draft: Draft) -> tuple[dict[str, Any], dict[str, A
         ],
     )
     # Enforce document limits on the edited source too.
+    load_document(source)
+    return snapshot, source
+
+
+def _review(request: Request, draft: Draft) -> tuple[dict[str, Any], dict[str, Any]]:
+    snapshot, source = _draft_source(request, draft)
     github_token = _github_token(request)
     catalog = request.app.state.adapter.catalog(github_token)
     validate_root_references(load_document(source), catalog)
@@ -236,6 +252,25 @@ def sample(request: Request) -> dict[str, Any]:
 def review(request: Request, draft: Draft) -> dict[str, Any]:
     """Inspect a draft and return the exact authored source and diff for review."""
     return _review(request, draft)[1]
+
+
+@router.post("/resolution")
+def resolution(request: Request, draft: ResolutionDraft) -> dict[str, Any]:
+    """Explain the current draft using Stacksmith's default value redaction.
+
+    Args:
+        request: Request carrying the authenticated session and managed config.
+        draft: Proposed source edits and optional dotted configuration address.
+
+    Returns:
+        Effective configuration or queried value, with ordered resolution events.
+
+    Raises:
+        ComposerError: If the snapshot, authored source, or resolution is invalid.
+    """
+    return request.app.state.adapter.resolution(
+        _draft_source(request, draft)[1], _github_token(request), draft.query
+    )
 
 
 @router.get("/repositories")

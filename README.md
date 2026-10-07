@@ -10,6 +10,7 @@ Composer is an independent project. Its FastAPI package is named `stacksmith-com
 
 - React, TypeScript, Vite, and React Flow canvas with draggable components and named input/output ports.
 - Catalog and association resolution through the real `stacksmith info` JSON commands.
+- A current-draft Resolution view backed by `stacksmith info explain`, with effective configuration, ordered provenance, and dotted address queries. Requires Stacksmith with the `info explain` command.
 - Component property and tag editing, explicit output connections, and stack-level association opt-outs.
 - Source-preserving YAML edits, JSON support, reviewed source download, and a unified diff.
 - Friendly platform configuration view with expandable static data and Python source previews, plus provider, module, and generation provenance links.
@@ -74,6 +75,8 @@ Visual edits support ordinary YAML/JSON mappings and quoted component output exp
 Inspection checks public output references, managed association resolution, and component cycles. It is not full Stacksmith validation or an infrastructure plan. Unknown component types, unresolved inputs, or unsupported stacks may block inspection. The catalog currently lists explicit module mappings; convention-based component catalog discovery is not yet implemented.
 
 The platform view describes the authored config file, not the fully merged effective configuration. Source labels expand to show static data, inline Python, available local Python script contents, and other authored source configuration; GitHub sources link to their files. Credential-like configuration fields are redacted. Remote script contents are not fetched by the browser.
+
+Open **Resolution** from the stack toolbar to inspect the current draft's effective stack, managed config, inputs, components, and module blocks. Switch to **Resolution history** to follow source contributions and decisions in order. Query a dotted address such as `components.api.properties.instance_type` or `inputs.region` to trace its contributing mappings and inputs, or use **Explain** for the selected component. All values and templates retain Stacksmith's default redaction; Composer never requests `--show-values`. This view uses the deployment's managed config and current draft, without repository runfile or variable layers. Configured Python validations and transforms execute during inspection, and module discovery may fetch sources. It does not write generated infrastructure files or run a plan.
 
 ## Runtime boundary
 

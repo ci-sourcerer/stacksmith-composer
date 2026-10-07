@@ -38,6 +38,19 @@ class FakeAdapter:
         """Return an empty association result for a provided stack source."""
         return {"rules": [], "applications": []}
 
+    def resolution(self, source, github_token=None, query=None):
+        """Return an empty redacted resolution response.
+
+        Args:
+            source: Current authored stack source.
+            github_token: Session credential for private sources.
+            query: Optional configuration address.
+
+        Returns:
+            An empty resolution history with redacted effective data.
+        """
+        return {"effective": {}, "events": []}
+
 
 @pytest.fixture
 def client(tmp_path):

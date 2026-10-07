@@ -78,6 +78,19 @@ export interface Review {
   validation: string;
   associations: { rules: AssociationRule[] };
 }
+export interface ResolutionEvent {
+  path: string;
+  action: string;
+  source: string;
+  value: unknown;
+  [key: string]: unknown;
+}
+export interface Resolution {
+  effective?: Record<string, unknown>;
+  query?: string;
+  value?: unknown;
+  events: ResolutionEvent[];
+}
 export interface SourceDetails {
   kind: string;
   label: string;

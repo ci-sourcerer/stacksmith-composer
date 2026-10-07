@@ -10,6 +10,30 @@ from stacksmith_composer.errors import ComposerError
 from stacksmith_composer.settings import Settings
 
 
+@pytest.mark.parametrize("query", [None, "components.api.properties.region"])
+def test_resolution_uses_redacted_explain_on_current_source(tmp_path, query):
+    adapter = StacksmithAdapter(
+        Settings(_env_file=None, config=tmp_path / "config.yaml")
+    )
+    adapter.command = "/example/bin/stacksmith"
+    with patch(
+        "subprocess.run",
+        return_value=subprocess.CompletedProcess([], 0, '{"events": []}', ""),
+    ) as run:
+        assert adapter.resolution(
+            "name: draft\ncomponents: {}", "session-token", query
+        ) == {"events": []}
+    args = run.call_args.args[0]
+    assert args[1:3] == ["info", "explain"]
+    assert "--show-values" not in args
+    assert args[args.index("--format") + 1] == "json"
+    if query:
+        assert args[3] == query
+    assert "--stack" in args
+    assert run.call_args.kwargs["env"]["STACKSMITH_GIT_TOKEN"] == "session-token"
+    assert not Path(run.call_args.kwargs["cwd"]).exists()
+
+
 def test_command_is_explicit_and_only_session_github_credential_is_forwarded(
     tmp_path, monkeypatch
 ):

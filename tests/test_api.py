@@ -1,4 +1,7 @@
 from copy import deepcopy
+from unittest.mock import patch
+
+import pytest
 
 
 def _draft(client):
@@ -34,23 +37,26 @@ def test_review_returns_authored_diff(client):
     assert "+      function_name: new-function" in response.json()["diff"]
 
 
-def test_snapshot_tampering_is_rejected(client):
+@pytest.mark.parametrize("path", ["/api/review", "/api/resolution"])
+def test_snapshot_tampering_is_rejected(client, path):
     draft = _draft(client)
     draft["snapshot"] += "tampered"
-    assert client.post("/api/review", json=draft).status_code == 409
+    assert client.post(path, json=draft).status_code == 409
 
 
-def test_config_change_requires_reopening(client, tmp_path):
+@pytest.mark.parametrize("path", ["/api/review", "/api/resolution"])
+def test_config_change_requires_reopening(client, tmp_path, path):
     draft = _draft(client)
     client.app.state.settings.config = tmp_path / "new-config.yaml"
     client.app.state.settings.config.write_text("description: changed\n")
-    assert client.post("/api/review", json=draft).status_code == 409
+    assert client.post(path, json=draft).status_code == 409
 
 
-def test_cross_origin_mutation_is_rejected(client):
+@pytest.mark.parametrize("path", ["/api/review", "/api/resolution"])
+def test_cross_origin_mutation_is_rejected(client, path):
     assert (
         client.post(
-            "/api/review",
+            path,
             json=_draft(client),
             headers={"Origin": "https://attacker.invalid"},
         ).status_code
@@ -58,10 +64,54 @@ def test_cross_origin_mutation_is_rejected(client):
     )
 
 
-def test_missing_csrf_header_is_rejected(client):
+@pytest.mark.parametrize("path", ["/api/review", "/api/resolution"])
+def test_missing_csrf_header_is_rejected(client, path):
     draft = _draft(client)
     client.headers.pop("X-Composer-Request")
-    assert client.post("/api/review", json=draft).status_code == 403
+    assert client.post(path, json=draft).status_code == 403
+
+
+@pytest.mark.parametrize(
+    "query", [None, "components.request_reader.properties.function_name"]
+)
+def test_resolution_inspects_current_edits_and_opt_out(client, query):
+    draft = _draft(client)
+    draft["components"]["request_reader"]["properties"]["function_name"] = (
+        "edited-function"
+    )
+    draft["disabled_associations"] = ["lambda-execution-role"]
+    draft["query"] = query
+    with patch.object(
+        client.app.state.adapter,
+        "resolution",
+        create=True,
+        return_value={"value": "[REDACTED]", "events": []},
+    ) as resolve:
+        response = client.post("/api/resolution", json=draft)
+    assert response.status_code == 200
+    assert response.json() == {"value": "[REDACTED]", "events": []}
+    assert "function_name: edited-function" in resolve.call_args.args[0]
+    assert "lambda-execution-role" in resolve.call_args.args[0]
+    assert resolve.call_args.args[1:] == (None, query)
+
+
+@pytest.mark.parametrize(
+    "query",
+    ["--show-values", "modules.api", "inputs..region", "inputs.region\n--show-values"],
+)
+def test_resolution_rejects_invalid_addresses(client, query):
+    assert (
+        client.post(
+            "/api/resolution", json={**_draft(client), "query": query}
+        ).status_code
+        == 422
+    )
+
+
+def test_resolution_requires_github_session(client):
+    draft = _draft(client)
+    client.app.state.settings.github_client_id = "configured"
+    assert client.post("/api/resolution", json=draft).status_code == 401
 
 
 def test_demo_never_creates_a_pull_request(client):

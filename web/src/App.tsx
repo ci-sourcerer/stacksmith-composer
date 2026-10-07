@@ -38,6 +38,7 @@ import {
 import { Canvas } from "./components/Canvas";
 import { Inspector } from "./components/Inspector";
 import { PlatformView } from "./components/PlatformView";
+import { ResolutionView } from "./components/ResolutionView";
 import { TypeIcon } from "./components/ComponentNode";
 import { useDarkMode } from "./useDarkMode";
 import { newComponentPosition, snapPoint } from "./layout";
@@ -51,7 +52,7 @@ import type {
   Snapshot,
 } from "./types";
 
-type View = "compose" | "catalog" | "platform" | "review";
+type View = "compose" | "catalog" | "platform" | "review" | "resolution";
 const CATALOG_PAGE_SIZE = 12;
 const REPOSITORY_PAGE_SIZE = 8;
 
@@ -647,7 +648,11 @@ export default function App() {
       </header>
       <nav className="main-nav" aria-label="Workspace">
         <button
-          className={view === "compose" || view === "review" ? "active" : ""}
+          className={
+            view === "compose" || view === "review" || view === "resolution"
+              ? "active"
+              : ""
+          }
           onClick={() => setView("compose")}
         >
           <Blocks size={17} />
@@ -714,7 +719,9 @@ export default function App() {
         </main>
       ) : (
         <>
-          {(view === "compose" || view === "review") && (
+          {(view === "compose" ||
+            view === "review" ||
+            view === "resolution") && (
             <section className="stack-toolbar">
               <div>
                 <div className="breadcrumb">
@@ -742,7 +749,15 @@ export default function App() {
                 </div>
               </div>
               <div className="toolbar-actions">
-                {view === "review" ? (
+                <button
+                  className={`button ${view === "resolution" ? "primary" : ""}`}
+                  disabled={!snapshot || !editable}
+                  onClick={() => setView("resolution")}
+                >
+                  <Search size={15} />
+                  Resolution
+                </button>
+                {view === "review" || view === "resolution" ? (
                   <button className="button" onClick={() => setView("compose")}>
                     <ArrowLeft size={15} />
                     Back to canvas
@@ -1082,6 +1097,14 @@ export default function App() {
           )}
           {view === "platform" && platform && (
             <PlatformView platform={platform} />
+          )}
+          {view === "resolution" && snapshot && (
+            <ResolutionView
+              key={snapshot.snapshot}
+              snapshot={snapshot}
+              draft={draftHistory.present}
+              selected={selected}
+            />
           )}
           {view === "review" && (
             <main className="review-view">
