@@ -2,7 +2,7 @@
 name = "stacksmith-composer"
 description = "A GitHub-connected visual composer for Stacksmith stacks"
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.15"
 dependencies = [
   "fastapi>=0.115,<1",
   "uvicorn[standard]>=0.34,<1",
