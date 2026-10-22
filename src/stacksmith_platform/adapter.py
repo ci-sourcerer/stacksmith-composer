@@ -37,6 +37,8 @@ class StacksmithAdapter:
         github_token: str | None = None,
         authoring_request: dict[str, Any] | None = None,
     ) -> str:
+        if self.settings.execution_enabled:
+            return self._execute(args, source, github_token, authoring_request)
         if not self.slots.acquire(timeout=1):
             raise ComposerError(
                 "Stacksmith is busy inspecting another draft. Retry shortly.", 503

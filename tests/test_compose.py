@@ -156,6 +156,7 @@ def test_compose_uses_one_env_and_separates_database_credentials(tmp_path, debug
     ca_bundle.write_text("custom CA PEM")
     set_key(tmp_path / ".env", "STACKSMITH_PLATFORM_CA_BUNDLE", str(ca_bundle))
     set_key(tmp_path / ".env", "UNRELATED_SECRET", "must-not-be-injected")
+    set_key(tmp_path / ".env", "STACKSMITH_PLATFORM_INSPECTION_CONCURRENCY", "7")
     result = subprocess.run(
         [
             "docker",
@@ -187,6 +188,7 @@ def test_compose_uses_one_env_and_separates_database_credentials(tmp_path, debug
     )
     api = config["services"]["api"]["environment"]
     worker = config["services"]["worker"]["environment"]
+    assert worker["STACKSMITH_PLATFORM_INSPECTION_CONCURRENCY"] == "7"
     assert api["STACKSMITH_PLATFORM_CA_BUNDLE"] == str(ca_bundle)
     assert worker["STACKSMITH_PLATFORM_CA_BUNDLE"] == str(ca_bundle)
     assert any(

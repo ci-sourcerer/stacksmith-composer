@@ -14,7 +14,7 @@ import httpx
 from botocore.exceptions import ClientError
 from cryptography.fernet import Fernet, InvalidToken
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
-from sqlalchemy import and_, or_
+from sqlalchemy import and_, func, or_
 
 from .access import require_workloads, run_workloads
 from .certificates import CA_BUNDLE_MOUNT_PATH, configure_ca_bundle
@@ -131,6 +131,11 @@ class RunReconciler:
         Returns:
             Whether a run was claimed for reconciliation.
         """
+        return self._reconcile_matching(
+            [runs.c.id == run_id] if run_id else [], generation
+        )
+
+    def _reconcile_matching(self, filters, generation=None):
         with self.database.transaction() as connection:
             conditions = [
                 runs.c.status.in_(["queued", "running", "cancelling"]),
@@ -140,9 +145,9 @@ class RunReconciler:
                     runs.c.lease < time.time(),
                 ),
             ]
-            conditions.append(
-                runs.c.id == run_id if run_id else runs.c.supervision.is_(None)
-            )
+            conditions.extend(filters)
+            if generation is None:
+                conditions.append(runs.c.supervision.is_(None))
             candidates = (
                 connection.execute(
                     runs.select()
@@ -990,7 +995,66 @@ class Worker(RunReconciler):
                     driver=self.settings.runner,
                 )
             )
-        self.reconcile_run()
+        self._reconcile_inspections()
+        self._reconcile_matching([runs.c.action != "inspection"])
+
+    def _reconcile_inspections(self):
+        """Poll owned inspections, recover abandoned work, then fill free slots."""
+        for identifier in self._inspection_candidates(owned=True):
+            self.reconcile_run(identifier)
+        for statuses in [("running", "cancelling"), ("queued",)]:
+            for identifier in self._inspection_candidates(
+                statuses=statuses, limit=self._inspection_capacity()
+            ):
+                self.reconcile_run(identifier)
+
+    def _inspection_capacity(self):
+        with self.database.transaction() as connection:
+            return max(
+                0,
+                self.settings.inspection_concurrency
+                - connection.execute(
+                    runs.select()
+                    .with_only_columns(func.count())
+                    .where(
+                        runs.c.action == "inspection",
+                        runs.c.supervision.is_(None),
+                        runs.c.worker == self.identifier,
+                        runs.c.status.in_(["running", "cancelling"]),
+                    )
+                ).scalar_one(),
+            )
+
+    def _inspection_candidates(
+        self, *, owned=False, statuses=("running", "cancelling"), limit=None
+    ):
+        with self.database.transaction() as connection:
+            return list(
+                connection.execute(
+                    runs.select()
+                    .with_only_columns(runs.c.id)
+                    .where(
+                        runs.c.action == "inspection",
+                        runs.c.supervision.is_(None),
+                        runs.c.status.in_(statuses),
+                        runs.c.worker == self.identifier
+                        if owned
+                        else or_(
+                            runs.c.worker.is_(None),
+                            and_(
+                                runs.c.worker == self.identifier,
+                                runs.c.status == "queued",
+                            ),
+                            and_(
+                                runs.c.worker != self.identifier,
+                                runs.c.lease < time.time(),
+                            ),
+                        ),
+                    )
+                    .order_by(runs.c.created, runs.c.id)
+                    .limit(limit)
+                ).scalars()
+            )
 
 
 def main() -> None:

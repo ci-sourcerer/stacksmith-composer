@@ -1,6 +1,9 @@
 import json
 import subprocess
+from concurrent.futures import ThreadPoolExecutor
+from functools import partial
 from pathlib import Path
+from threading import Barrier
 from unittest.mock import patch
 
 import pytest
@@ -8,6 +11,42 @@ import pytest
 from stacksmith_platform.adapter import StacksmithAdapter
 from stacksmith_platform.errors import ComposerError
 from stacksmith_platform.settings import Settings
+
+
+def _queued_inspection(barrier, *args):
+    barrier.wait(timeout=5)
+    return "{}"
+
+
+def test_execution_requests_bypass_local_subprocess_slots(tmp_path):
+    adapter = StacksmithAdapter(Settings(_env_file=None, config=tmp_path / "config"))
+    adapter.settings.execution_enabled = True
+    with (
+        patch("stacksmith_platform.inspection.InspectionQueue") as queue,
+        ThreadPoolExecutor(max_workers=4) as executor,
+    ):
+        queue.return_value.execute.side_effect = partial(_queued_inspection, Barrier(4))
+        futures = [executor.submit(adapter.catalog) for _ in range(4)]
+        assert [future.result(timeout=10) for future in futures] == [{}, {}, {}, {}]
+        assert queue.return_value.execute.call_count == 4
+
+
+def test_local_subprocess_limit_is_retained_and_released_after_failure(tmp_path):
+    adapter = StacksmithAdapter(Settings(_env_file=None, config=tmp_path / "config"))
+    assert adapter.slots.acquire(blocking=False)
+    assert adapter.slots.acquire(blocking=False)
+    with pytest.raises(ComposerError, match="busy"):
+        adapter.catalog()
+    adapter.slots.release()
+    with (
+        patch.object(adapter, "_execute", side_effect=ComposerError("failed")),
+        pytest.raises(ComposerError, match="failed"),
+    ):
+        adapter.catalog()
+    assert adapter.slots.acquire(blocking=False)
+    assert not adapter.slots.acquire(blocking=False)
+    adapter.slots.release()
+    adapter.slots.release()
 
 
 @pytest.mark.parametrize("query", [None, "components.api.properties.region"])

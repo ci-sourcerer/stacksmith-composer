@@ -54,6 +54,7 @@ class Settings(BaseSettings):
     supervisor_cpu: str = "1"
     supervisor_memory: str = "1Gi"
     inspection_wait_timeout: int | None = Field(default=None, ge=1)
+    inspection_concurrency: int = Field(default=4, ge=1)
     execution_namespace: str = "stacksmith-runs"
     execution_service_account: str = "stacksmith-execution"
     execution_cpu: str = "1"

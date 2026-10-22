@@ -4,6 +4,19 @@ from pydantic import ValidationError
 from stacksmith_platform.settings import Settings
 
 
+def test_inspection_concurrency_default_and_environment(monkeypatch):
+    monkeypatch.delenv("STACKSMITH_PLATFORM_INSPECTION_CONCURRENCY", raising=False)
+    assert Settings(_env_file=None).inspection_concurrency == 4
+    monkeypatch.setenv("STACKSMITH_PLATFORM_INSPECTION_CONCURRENCY", "8")
+    assert Settings(_env_file=None).inspection_concurrency == 8
+
+
+@pytest.mark.parametrize("value", [0, -1])
+def test_inspection_concurrency_must_be_positive(value):
+    with pytest.raises(ValidationError):
+        Settings(_env_file=None, inspection_concurrency=value)
+
+
 def test_unrelated_dotenv_values_do_not_break_platform_configuration(tmp_path):
     dotenv = tmp_path / ".env"
     dotenv.write_text(
