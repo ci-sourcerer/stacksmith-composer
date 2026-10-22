@@ -15,6 +15,7 @@ from stacksmith_platform.execution import (
     _extract,
     _prepare,
 )
+from stacksmith_platform.worker import RunReconciler
 
 
 def test_docker_execution_has_no_control_plane_access(monkeypatch):
@@ -22,7 +23,10 @@ def test_docker_execution_has_no_control_plane_access(monkeypatch):
     monkeypatch.setattr("stacksmith_platform.drivers.docker.from_env", lambda: runtime)
     driver = DockerDriver(
         SimpleNamespace(
-            docker_network="isolated", docker_memory="2g", execution_cpu="1"
+            docker_network="isolated",
+            docker_memory="2g",
+            execution_cpu="1",
+            ca_bundle=None,
         )
     )
     driver.launch(
@@ -31,12 +35,49 @@ def test_docker_execution_has_no_control_plane_access(monkeypatch):
     options = runtime.containers.run.call_args.kwargs
     assert options["read_only"] and options["cap_drop"] == ["ALL"]
     assert options["network"] == "isolated" and options["user"] == "10001:10001"
-    assert "volumes" not in options
+    assert options["volumes"] is None
     for mount in ("/tmp", "/work"):
         assert {"exec", "nosuid", "nodev"} <= set(options["tmpfs"][mount].split(","))
     assert options["environment"] == {"PLATFORM_INPUT_URL": "single-object"}
     assert options["entrypoint"] == ["stacksmith-platform-execute"]
     assert options["log_config"]["Config"]["max-size"] == "1m"
+
+
+def test_docker_execution_mounts_custom_ca_bundle_read_only(monkeypatch):
+    runtime = MagicMock()
+    monkeypatch.setattr("stacksmith_platform.drivers.docker.from_env", lambda: runtime)
+    path = "/etc/stacksmith/custom-ca.pem"
+    driver = DockerDriver(
+        SimpleNamespace(
+            docker_network="isolated",
+            docker_memory="2g",
+            execution_cpu="1",
+            ca_bundle=path,
+        )
+    )
+
+    driver.launch("phase", "image@sha256:digest", {}, 3600)
+
+    assert runtime.containers.run.call_args.kwargs["volumes"] == {
+        path: {"bind": "/etc/stacksmith-custom-ca.pem", "mode": "ro"}
+    }
+
+
+def test_worker_passes_custom_ca_bundle_to_run_container():
+    worker = object.__new__(RunReconciler)
+    worker.settings = SimpleNamespace(phase_timeout=60, ca_bundle="/host/custom-ca.pem")
+    worker.storage = MagicMock()
+    worker.database = MagicMock()
+    worker.database.decrypt.return_value = "handoff-key"
+    worker.driver = MagicMock()
+
+    worker._launch(
+        {"spec": {"image": "image@sha256:digest"}},
+        {"name": "run-phase", "input": "input-key", "key": "encrypted-key"},
+    )
+
+    environment = worker.driver.launch.call_args.args[2]
+    assert environment["PLATFORM_CA_BUNDLE"] == "/etc/stacksmith-custom-ca.pem"
 
 
 def test_kubernetes_execution_is_non_retrying_and_has_no_api_credentials(monkeypatch):
@@ -139,6 +180,7 @@ def test_workspace_round_trip_preserves_generated_plan(tmp_path):
 def test_subprocess_environment_does_not_inherit_supervisor_secrets(monkeypatch):
     monkeypatch.setenv("DATABASE_URL", "sensitive")
     monkeypatch.setenv("STACKSMITH_PLATFORM_SECRET_KEY", "sensitive")
+    monkeypatch.setenv("SSL_CERT_FILE", "/tmp/custom-ca.pem")
     environment = _environment(
         {
             "github_token": "git-token",
@@ -154,6 +196,7 @@ def test_subprocess_environment_does_not_inherit_supervisor_secrets(monkeypatch)
     assert environment["FORCE_COLOR"] == "1"
     assert environment["TERM"] == "xterm-256color"
     assert environment["STACKSMITH_CI_SUMMARY_FORMAT"] == "none"
+    assert environment["SSL_CERT_FILE"] == "/tmp/custom-ca.pem"
     assert "NO_COLOR" not in environment
     assert "STACKSMITH_CI_SKIP_BACKEND_VALIDATION" not in environment
 

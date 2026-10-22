@@ -9,6 +9,7 @@ x-platform-environment: &platform-environment
   STACKSMITH_PLATFORM_GITHUB_APP_ID: ${STACKSMITH_PLATFORM_GITHUB_APP_ID:?Set GitHub App ID}
   STACKSMITH_PLATFORM_GITHUB_PRIVATE_KEY: ${STACKSMITH_PLATFORM_GITHUB_PRIVATE_KEY:?Run poe stack-check to import the GitHub App PEM}
   STACKSMITH_PLATFORM_GITHUB_WEBHOOK_SECRET: ${STACKSMITH_PLATFORM_GITHUB_WEBHOOK_SECRET:?Run poe configure}
+  STACKSMITH_PLATFORM_CA_BUNDLE: ${STACKSMITH_PLATFORM_CA_BUNDLE:-}
   STACKSMITH_PLATFORM_CONFIG: ${STACKSMITH_PLATFORM_CONFIG:?Set approved Composer configuration}
   STACKSMITH_PLATFORM_DRAFT_PULL_REQUESTS: ${STACKSMITH_PLATFORM_DRAFT_PULL_REQUESTS:-true}
   STACKSMITH_PLATFORM_EXECUTION_IMAGE: ${STACKSMITH_PLATFORM_EXECUTION_IMAGE:?Run poe execution-image or set a prebuilt execution image}
@@ -29,6 +30,14 @@ x-platform-environment: &platform-environment
   STACKSMITH_PLATFORM_DOCKER_MEMORY: ${STACKSMITH_PLATFORM_DOCKER_MEMORY:-2g}
   FORWARDED_ALLOW_IPS: ${FORWARDED_ALLOW_IPS:-*}
 
+x-platform-ca-volume: &platform-ca-volume
+  type: bind
+  source: ${STACKSMITH_PLATFORM_CA_BUNDLE:-/dev/null}
+  target: /etc/stacksmith-custom-ca.pem
+  read_only: true
+  bind:
+    create_host_path: false
+
 x-platform: &platform
   image: ${STACKSMITH_PLATFORM_IMAGE:-stacksmith-platform:local}
   restart: unless-stopped
@@ -37,6 +46,8 @@ x-platform: &platform
   networks: [control, execution]
   read_only: true
   tmpfs: [/tmp]
+  volumes:
+    - *platform-ca-volume
 
 services:
   frontend:
@@ -175,7 +186,9 @@ services:
       STACKSMITH_PLATFORM_RUNNER: docker
       STACKSMITH_PLATFORM_DOCKER_NETWORK: ${STACKSMITH_PLATFORM_DOCKER_NETWORK:-stacksmith-execution}
       STACKSMITH_PLATFORM_RUN_ENVIRONMENT: "${STACKSMITH_PLATFORM_RUN_ENVIRONMENT:-{}}"
-    volumes: [/var/run/docker.sock:/var/run/docker.sock]
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - *platform-ca-volume
     depends_on:
       api: {condition: service_healthy}
     healthcheck:

@@ -10,6 +10,7 @@ from urllib.parse import parse_qs, quote, urlparse
 
 from pydantic import BaseModel, ConfigDict, ValidationError
 
+from .certificates import ca_environment
 from .configuration import config_arguments
 from .errors import ComposerError
 from .settings import Settings
@@ -249,6 +250,7 @@ def _subprocess_environment(github_token: str | None) -> dict[str, str]:
         for key, value in os.environ.items()
         if key in {"PATH", "HOME", "TMPDIR", "LANG", "SYSTEMROOT"}
     }
+    environment.update(ca_environment())
     if github_token:
         environment["STACKSMITH_GIT_TOKEN"] = github_token
     return environment

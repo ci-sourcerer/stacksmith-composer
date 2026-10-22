@@ -61,6 +61,14 @@ def test_command_is_explicit_and_only_session_github_credential_is_forwarded(
     assert not Path(run.call_args.kwargs["cwd"]).exists()
 
 
+def test_subprocess_environment_forwards_custom_ca(monkeypatch):
+    from stacksmith_platform.adapter import _subprocess_environment
+
+    monkeypatch.setenv("SSL_CERT_FILE", "/tmp/stacksmith-ca.pem")
+
+    assert _subprocess_environment(None)["SSL_CERT_FILE"] == "/tmp/stacksmith-ca.pem"
+
+
 def test_timeout_has_a_public_recovery_message(tmp_path):
     adapter = StacksmithAdapter(
         Settings(_env_file=None, config=tmp_path / "trusted.yaml")

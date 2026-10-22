@@ -3,6 +3,7 @@ from docker.errors import NotFound
 from kubernetes import client, config
 from kubernetes.client.exceptions import ApiException
 
+from .certificates import CA_BUNDLE_MOUNT_PATH
 from .integrations import ExecutionDriver
 
 
@@ -37,7 +38,7 @@ class DockerDriver(ExecutionDriver):
         )
 
     def launch(self, name, image, environment, timeout):
-        """Launch an execution without host mounts or Docker access.
+        """Launch an isolated execution with an optional read-only CA mount.
 
         Args:
             name: Stable execution name.
@@ -63,6 +64,16 @@ class DockerDriver(ExecutionDriver):
             cap_drop=["ALL"],
             security_opt=["no-new-privileges:true"],
             read_only=True,
+            volumes=(
+                {
+                    self.settings.ca_bundle: {
+                        "bind": CA_BUNDLE_MOUNT_PATH,
+                        "mode": "ro",
+                    }
+                }
+                if self.settings.ca_bundle
+                else None
+            ),
             tmpfs={
                 "/work": "rw,exec,nosuid,nodev,size=4g,uid=10001,gid=10001",
                 "/tmp": "rw,exec,nosuid,nodev,size=1g,uid=10001,gid=10001",

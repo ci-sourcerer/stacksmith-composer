@@ -17,6 +17,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from sqlalchemy import and_, or_
 
 from .access import require_workloads, run_workloads
+from .certificates import CA_BUNDLE_MOUNT_PATH, configure_ca_bundle
 from .configuration import effective_config
 from .database import (
     Database,
@@ -491,15 +492,18 @@ class RunReconciler:
         self._launch(run, execution)
 
     def _launch(self, run, execution):
+        environment = {
+            "PLATFORM_INPUT_URL": self.storage.url(
+                execution["input"], "get_object", self.settings.phase_timeout + 300
+            ),
+            "PLATFORM_HANDOFF_KEY": self.database.decrypt(execution["key"]),
+        }
+        if self.settings.ca_bundle:
+            environment["PLATFORM_CA_BUNDLE"] = CA_BUNDLE_MOUNT_PATH
         self.driver.launch(
             execution["name"],
             run["spec"]["image"],
-            {
-                "PLATFORM_INPUT_URL": self.storage.url(
-                    execution["input"], "get_object", self.settings.phase_timeout + 300
-                ),
-                "PLATFORM_HANDOFF_KEY": self.database.decrypt(execution["key"]),
-            },
+            environment,
             self.settings.phase_timeout,
         )
 
@@ -999,6 +1003,7 @@ def main() -> None:
         ValueError: Execution is not configured.
     """
     settings = Settings()
+    configure_ca_bundle(CA_BUNDLE_MOUNT_PATH if settings.ca_bundle else None)
     if not settings.execution_enabled:
         raise ValueError("Enable execution before starting a worker")
     if settings.supervision_mode != "worker":

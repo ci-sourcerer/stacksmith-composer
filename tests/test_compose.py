@@ -152,6 +152,9 @@ def test_prebuilt_execution_image_does_not_trigger_a_build(tmp_path, monkeypatch
 @pytest.mark.parametrize("debug", [False, True])
 def test_compose_uses_one_env_and_separates_database_credentials(tmp_path, debug):
     values = _configured(tmp_path / ".env")
+    ca_bundle = tmp_path / "custom-ca.pem"
+    ca_bundle.write_text("custom CA PEM")
+    set_key(tmp_path / ".env", "STACKSMITH_PLATFORM_CA_BUNDLE", str(ca_bundle))
     set_key(tmp_path / ".env", "UNRELATED_SECRET", "must-not-be-injected")
     result = subprocess.run(
         [
@@ -184,6 +187,20 @@ def test_compose_uses_one_env_and_separates_database_credentials(tmp_path, debug
     )
     api = config["services"]["api"]["environment"]
     worker = config["services"]["worker"]["environment"]
+    assert api["STACKSMITH_PLATFORM_CA_BUNDLE"] == str(ca_bundle)
+    assert worker["STACKSMITH_PLATFORM_CA_BUNDLE"] == str(ca_bundle)
+    assert any(
+        mount["source"] == str(ca_bundle)
+        and mount["target"] == "/etc/stacksmith-custom-ca.pem"
+        and mount["read_only"]
+        for mount in config["services"]["api"]["volumes"]
+    )
+    assert any(
+        mount["source"] == str(ca_bundle)
+        and mount["target"] == "/etc/stacksmith-custom-ca.pem"
+        and mount["read_only"]
+        for mount in config["services"]["worker"]["volumes"]
+    )
     assert values["STACKSMITH_PLATFORM_DB_PASSWORD"] not in json.dumps(api)
     assert values["STACKSMITH_PLATFORM_WORKER_DB_PASSWORD"] not in json.dumps(api)
     assert values["STACKSMITH_PLATFORM_API_DB_PASSWORD"] not in json.dumps(worker)

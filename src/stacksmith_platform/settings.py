@@ -38,6 +38,7 @@ class Settings(BaseSettings):
     github_app_slug: str = ""
     github_private_key: str = ""
     github_private_key_file: Path | None = None
+    ca_bundle: str = ""
     github_webhook_secret: str = ""
     execution_image: str = ""
     allow_local_execution_image: bool = False
@@ -111,6 +112,8 @@ class Settings(BaseSettings):
                 self.github_private_key = self.github_private_key_file.read_text()
             except OSError as exc:
                 raise ValueError("Cannot read the GitHub App private key file") from exc
+        if self.ca_bundle and not Path(self.ca_bundle).is_absolute():
+            raise ValueError("Custom CA bundle path must be absolute")
         if (
             self.execution_enabled
             and self.supervision_mode == "kubernetes-jobs"

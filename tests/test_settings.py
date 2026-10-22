@@ -67,6 +67,11 @@ def test_github_app_key_can_be_loaded_from_a_mounted_file(tmp_path):
     )
 
 
+def test_custom_ca_bundle_requires_an_absolute_path():
+    with pytest.raises(ValidationError, match="Custom CA bundle path must be absolute"):
+        Settings(_env_file=None, ca_bundle="certs/custom.pem")
+
+
 def test_local_kubernetes_image_requires_explicit_dev_setting():
     with pytest.raises(ValidationError):
         Settings(

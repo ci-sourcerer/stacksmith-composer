@@ -11,6 +11,7 @@ from pathlib import Path
 import httpx
 from cryptography.fernet import Fernet
 
+from .certificates import ca_environment, configure_ca_bundle
 from .configuration import config_arguments
 
 MAX_HANDOFF = 1024**3
@@ -103,6 +104,7 @@ def _environment(payload):
         "TERM": "xterm-256color",
         "STACKSMITH_GIT_TOKEN": payload["github_token"],
         "STACKSMITH_WARN_ON_UNLOCKED": "0",
+        **ca_environment(),
         **payload["credentials"],
         **(
             {"STACKSMITH_CI_SKIP_BACKEND_VALIDATION": "1"}
@@ -246,6 +248,7 @@ def _inspect(payload, directory):
         env={
             "PATH": os.environ["PATH"],
             "HOME": "/work",
+            **ca_environment(),
             **(
                 {"STACKSMITH_GIT_TOKEN": inspection["github_token"]}
                 if inspection["github_token"]
@@ -279,6 +282,7 @@ def _inspect_operations(payload, directory):
         env={
             "PATH": os.environ["PATH"],
             "HOME": "/work/home",
+            **ca_environment(),
             "STACKSMITH_GIT_TOKEN": inspection["github_token"],
         },
         timeout=payload["timeout"],
@@ -336,6 +340,7 @@ def main() -> None:
         httpx.HTTPError: Artifact handoff or claim service is unavailable.
         ValueError: Execution context or prepared inputs fail verification.
     """
+    configure_ca_bundle(os.environ.get("PLATFORM_CA_BUNDLE"))
     cipher = Fernet(os.environ["PLATFORM_HANDOFF_KEY"].encode())
     payload = json.loads(cipher.decrypt(_download(os.environ["PLATFORM_INPUT_URL"])))
     response = httpx.post(

@@ -41,11 +41,14 @@ The configuration task expands `.env.example`, preserves existing values, migrat
 
 Fill the fields reported by configure.
 
+For services or proxies that use an additional CA, set `STACKSMITH_PLATFORM_CA_BUNDLE` to the absolute path of a PEM bundle on the Docker host. Ensure the file is readable by the platform containers. Compose mounts it read-only into the API, worker, and Docker-launched run containers. The platform appends these certificates to its existing public CA roots; it does not replace them. Leave the setting blank when no custom CA is needed.
+
 | Setting | Where to get it |
 | --- | --- |
 | `STACKSMITH_PLATFORM_GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET` | GitHub App settings; existing Composer values are preserved |
 | `STACKSMITH_PLATFORM_GITHUB_APP_ID` | Numeric App ID in GitHub App settings |
 | `STACKSMITH_PLATFORM_GITHUB_PRIVATE_KEY_FILE` | Host path where you saved the downloaded App PEM, normally `./.secrets/github-app.pem` |
+| `STACKSMITH_PLATFORM_CA_BUNDLE` | Optional absolute host path to a PEM bundle of additional trusted CAs |
 | `STACKSMITH_PLATFORM_ADMIN_LOGINS` | JSON array of the GitHub users who administer this deployment |
 | `STACKSMITH_PLATFORM_CONFIG` | GitHub `git+https` reference to the approved Composer config |
 | `STACKSMITH_PLATFORM_STACKSMITH_IMAGE` | Defaults to `docker.io/cisourcerer/stacksmith:latest`; use an image with Python 3.15 and its toolchain |

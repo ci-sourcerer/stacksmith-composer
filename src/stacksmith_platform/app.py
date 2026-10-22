@@ -19,6 +19,7 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from .access import access_for
 from .adapter import StacksmithAdapter
+from .certificates import CA_BUNDLE_MOUNT_PATH, configure_ca_bundle
 from .configuration import configuration_policy
 from .database import repositories as registered_repositories
 from .database import row
@@ -820,8 +821,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     Returns:
         FastAPI application with a separate CLI adapter and encrypted session store.
     """
+    settings = settings or Settings()
+    configure_ca_bundle(CA_BUNDLE_MOUNT_PATH if settings.ca_bundle else None)
     app = FastAPI(title="Stacksmith Platform", version="0.1.0", lifespan=_lifespan)
-    app.state.settings = settings or Settings()
+    app.state.settings = settings
     from .control import router as control_router
     from .database import Database, local_database
     from .factories import artifact_storage

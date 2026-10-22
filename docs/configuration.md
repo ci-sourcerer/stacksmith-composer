@@ -28,6 +28,7 @@ GitHub mode requires a stable `SECRET_KEY` of at least 32 characters. The callba
 | `ADMIN_LOGINS` | JSON array of bootstrap GitHub administrators | Required for execution |
 | `GITHUB_APP_ID` / `GITHUB_PRIVATE_KEY` | Background installation-token issuance; `GITHUB_PRIVATE_KEY_FILE` reads a mounted PEM instead | Required for execution |
 | `GITHUB_WEBHOOK_SECRET` | HMAC authentication for GitHub events | Required for execution |
+| `CA_BUNDLE` | Optional absolute host path to a PEM bundle of additional CAs for Compose services and Docker-launched runs | Unset |
 | `EXECUTION_IMAGE` | Named `@sha256:` execution image; Docker also accepts local `sha256:` IDs | Required for execution |
 | `EXECUTION_CALLBACK_URL` | API origin reachable from execution containers | Falls back to public URL |
 | `RUNNER` | `docker` or `kubernetes` | `docker` |
@@ -45,6 +46,8 @@ GitHub mode requires a stable `SECRET_KEY` of at least 32 characters. The callba
 `ARTIFACT_ENDPOINT`, `ARTIFACT_REGION`, `ARTIFACT_BUCKET`, `ARTIFACT_ACCESS_KEY`, and `ARTIFACT_SECRET_KEY` configure private S3-compatible storage. The region defaults to `us-east-1`, and the bucket defaults to `stacksmith-platform`. A blank endpoint selects the AWS S3 service. Use a private bucket; presigned phase handoffs must be reachable from run containers.
 
 `SECRET_REFERENCES` is an optional JSON object mapping administrator-defined reference names to secret values supplied by the deployment. Environment bindings select either one reference or one entered value and a set of phases. Entered values are encrypted and never returned by read APIs. Credential changes invalidate pending approvals through the environment revision. Binding names cannot override runner, source-locking, Git, or Python process controls.
+
+For Compose deployments, `CA_BUNDLE` points to an absolute host path containing additional PEM certificates. The file is mounted read-only into the API and worker and into Docker-launched run containers. The platform combines it with the existing public CA bundle, so public roots remain trusted. Leave it unset when no additional CA certificates are needed. Helm/Kubernetes deployments do not use this Compose-only setting.
 
 See [Deployment](deployment.md) for Compose files, Kubernetes Secrets, database roles, runtime image builds, and endpoint routing.
 

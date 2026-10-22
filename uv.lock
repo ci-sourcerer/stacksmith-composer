@@ -1147,6 +1147,7 @@ name = "stacksmith-platform"
 source = { editable = "." }
 dependencies = [
     { name = "boto3" },
+    { name = "certifi" },
     { name = "cryptography" },
     { name = "docker" },
     { name = "fastapi" },
@@ -1174,6 +1175,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "boto3", specifier = ">=1.35,<2" },
+    { name = "certifi", specifier = ">=2024.2.2" },
     { name = "cryptography", specifier = ">=44" },
     { name = "docker", specifier = ">=7,<8" },
     { name = "fastapi", specifier = ">=0.115,<1" },
